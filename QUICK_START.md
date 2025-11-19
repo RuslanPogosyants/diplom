@@ -60,6 +60,8 @@ python src/logger.py
 
 ## 📖 Подробнее
 
+- **GigaChat суммаризация:** `GIGACHAT_SUMMARIZATION.md` ⭐ НОВОЕ!
 - Полная инструкция по GigaChat: `GIGACHAT_SETUP.md`
 - README с примерами: `README.md`
+- Исправленные баги: `BUGFIXES.md`
 - Структура кода: см. коммит с ревью
