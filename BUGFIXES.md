@@ -133,6 +133,72 @@ print_device_info()
 
 ---
 
+### 4. Add detailed per-segment summarization progress logging (f53780c, 4351350)
+
+**Проблема:**
+```
+Суммаризация занимает 10+ минут без видимого прогресса
+Пользователь не понимает что происходит - система зависла или работает
+```
+
+**Причина:**
+- В `summarize.py` только tqdm progress bar показывал прогресс
+- Нет детального логирования после завершения каждого сегмента
+- Невозможно отследить какой сегмент обрабатывается и сколько времени занимает
+
+**Решение:**
+Добавлено детальное логирование в `src/summarize.py` и `src/llm_provider.py`:
+
+```python
+# src/summarize.py
+import time
+from .logger import get_logger
+
+logger = get_logger(__name__)
+
+for idx, segment in enumerate(iterator, 1):
+    segment_start_time = time.time()
+
+    logger.info(f"Processing segment {idx}/{len(segments)} (ID: {segment_id})")
+
+    # ... обработка сегмента ...
+
+    elapsed = time.time() - segment_start_time
+    logger.info(
+        f"✓ Segment {idx}/{len(segments)} completed in {elapsed:.1f}s - "
+        f"{original_length} → {summary_length} chars "
+        f"({compression_ratio:.1f}x compression)"
+    )
+```
+
+**Результат:**
+```
+2025-11-19 15:30:12 [INFO] Processing segment 1/25 (ID: 0)
+2025-11-19 15:30:24 [INFO] ✓ Segment 1/25 completed in 12.3s - 1243 → 156 chars (8.0x compression)
+2025-11-19 15:30:25 [INFO] Processing segment 2/25 (ID: 1)
+2025-11-19 15:30:36 [INFO] ✓ Segment 2/25 completed in 11.8s - 987 → 134 chars (7.4x compression)
+...
+```
+
+**Проверка:**
+```bash
+# Запустить суммаризацию
+python -m src.cli summarize artifacts/video_id/segments_semantic.json
+
+# В другом терминале смотреть логи в реальном времени
+tail -f logs/app_*.log
+
+# Увидите детальный прогресс по каждому сегменту
+```
+
+**Дополнительно обновлено:**
+- ✅ Все print() в `summarize.py` заменены на logger
+- ✅ Все print() в `llm_provider.py` заменены на logger
+- ✅ Добавлен таймер для каждого сегмента
+- ✅ Логирование показывает compression ratio и время обработки
+
+---
+
 ## ✅ Текущий статус
 
 | Баг | Статус | Коммит |
@@ -140,6 +206,7 @@ print_device_info()
 | UTF-8 кодировка | ✅ Исправлен | 286184c |
 | Отсутствие логирования | ✅ Исправлен | 286184c |
 | device='auto' краш | ✅ Исправлен | fd128ed |
+| Нет прогресса при суммаризации | ✅ Исправлен | f53780c, 4351350 |
 
 ---
 
