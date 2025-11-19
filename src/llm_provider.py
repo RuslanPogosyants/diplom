@@ -7,6 +7,9 @@ Phase 3: Кэширование и генерация ответов к вопр
 import os
 from typing import List, Dict, Optional
 from dataclasses import dataclass
+from .logger import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -52,9 +55,9 @@ class GigaChatProvider:
                 "Set GIGACHAT_CREDENTIALS environment variable or pass api_key"
             )
 
-        print(f"[INFO] Initializing GigaChat provider")
-        print(f"[INFO] Model: {config.model}")
-        print(f"[INFO] Scope: {config.scope}")
+        logger.info(f"Initializing GigaChat provider")
+        logger.info(f"Model: {config.model}")
+        logger.info(f"Scope: {config.scope}")
 
     def chat(
             self,
@@ -82,13 +85,13 @@ class GigaChatProvider:
         system_length = len(system_prompt) if system_prompt else 0
         total_chars = prompt_length + system_length
 
-        print(f"\n[GIGACHAT] 🚀 Sending request to GigaChat API")
-        print(f"[GIGACHAT] Model: {self.config.model}")
-        print(f"[GIGACHAT] Temperature: {temp}")
-        print(f"[GIGACHAT] Prompt size: {prompt_length} chars")
+        logger.info(f"[GIGACHAT] Sending request to GigaChat API")
+        logger.info(f"[GIGACHAT] Model: {self.config.model}")
+        logger.info(f"[GIGACHAT] Temperature: {temp}")
+        logger.info(f"[GIGACHAT] Prompt size: {prompt_length} chars")
         if system_prompt:
-            print(f"[GIGACHAT] System prompt size: {system_length} chars")
-        print(f"[GIGACHAT] Total size: {total_chars} chars (~{total_chars // 4} tokens)")
+            logger.info(f"[GIGACHAT] System prompt size: {system_length} chars")
+        logger.info(f"[GIGACHAT] Total size: {total_chars} chars (~{total_chars // 4} tokens)")
 
         start_time = time.time()
 
@@ -114,7 +117,7 @@ class GigaChatProvider:
                 })
 
                 # Запрос к API
-                print(f"[GIGACHAT] ⏳ Waiting for response...")
+                logger.info(f"[GIGACHAT] Waiting for response...")
                 response = giga.chat(
                     messages=messages,
                     temperature=temp,
@@ -125,22 +128,22 @@ class GigaChatProvider:
                 response_text = response.choices[0].message.content
                 response_length = len(response_text)
 
-                print(f"[GIGACHAT] ✅ Response received in {elapsed:.2f}s")
-                print(f"[GIGACHAT] Response size: {response_length} chars (~{response_length // 4} tokens)")
+                logger.info(f"[GIGACHAT] Response received in {elapsed:.2f}s")
+                logger.info(f"[GIGACHAT] Response size: {response_length} chars (~{response_length // 4} tokens)")
 
                 # Если есть информация об использовании токенов
                 if hasattr(response, 'usage') and response.usage:
-                    print(f"[GIGACHAT] 💰 Token usage:")
-                    print(f"[GIGACHAT]   - Prompt tokens: {response.usage.prompt_tokens}")
-                    print(f"[GIGACHAT]   - Completion tokens: {response.usage.completion_tokens}")
-                    print(f"[GIGACHAT]   - Total tokens: {response.usage.total_tokens}")
+                    logger.info(f"[GIGACHAT] Token usage:")
+                    logger.info(f"[GIGACHAT]   - Prompt tokens: {response.usage.prompt_tokens}")
+                    logger.info(f"[GIGACHAT]   - Completion tokens: {response.usage.completion_tokens}")
+                    logger.info(f"[GIGACHAT]   - Total tokens: {response.usage.total_tokens}")
 
                 return response_text
 
         except Exception as e:
             elapsed = time.time() - start_time
-            print(f"[GIGACHAT] ❌ Request failed after {elapsed:.2f}s")
-            print(f"[GIGACHAT] Error: {e}")
+            logger.error(f"[GIGACHAT] Request failed after {elapsed:.2f}s")
+            logger.error(f"[GIGACHAT] Error: {e}", exc_info=True)
             raise
 
 
@@ -167,9 +170,9 @@ class LLMProvider:
             try:
                 from .llm_cache import LLMCache
                 self.cache = LLMCache(enabled=True)
-                print("[INFO] LLM caching enabled")
+                logger.info("LLM caching enabled")
             except Exception as e:
-                print(f"[WARN] Failed to initialize cache: {e}")
+                logger.warning(f"Failed to initialize cache: {e}")
                 self.cache = None
         else:
             self.cache = None
@@ -200,14 +203,14 @@ class LLMProvider:
 
         # Проверяем кэш
         if self.cache:
-            print(f"[CACHE] 🔍 Checking cache...")
+            logger.info(f"[CACHE] Checking cache...")
             cached_response = self.cache.get(prompt, cache_config)
             if cached_response:
-                print(f"[CACHE] ✅ Cache HIT! Using cached response")
-                print(f"[CACHE] 💰 Tokens saved: ~{len(prompt.split()) + len(cached_response.split())}")
+                logger.info(f"[CACHE] Cache HIT! Using cached response")
+                logger.info(f"[CACHE] Tokens saved: ~{len(prompt.split()) + len(cached_response.split())}")
                 return cached_response
             else:
-                print(f"[CACHE] ❌ Cache MISS - will fetch from API")
+                logger.info(f"[CACHE] Cache MISS - will fetch from API")
 
         # Вызываем API
         response = self.provider.chat(prompt, system_prompt, temperature)
@@ -216,7 +219,7 @@ class LLMProvider:
         if self.cache:
             # Примерная оценка токенов (грубая)
             tokens_estimate = len(prompt.split()) + len(response.split())
-            print(f"[CACHE] 💾 Saving response to cache (~{tokens_estimate} tokens)")
+            logger.info(f"[CACHE] Saving response to cache (~{tokens_estimate} tokens)")
             self.cache.set(prompt, cache_config, response, tokens=tokens_estimate)
 
         return response
@@ -232,10 +235,10 @@ class LLMProvider:
         Returns:
             Общий обзор лекции
         """
-        print("\n" + "=" * 60)
-        print("[LLM] 📝 Generating lecture overview")
-        print("=" * 60)
-        print(f"[LLM] Input: {len(summaries)} summaries")
+        logger.info("=" * 60)
+        logger.info("[LLM] Generating lecture overview")
+        logger.info("=" * 60)
+        logger.info(f"[LLM] Input: {len(summaries)} summaries")
 
         # Объединяем суммаризации
         combined_text = "\n\n".join([
@@ -281,10 +284,10 @@ class LLMProvider:
         Returns:
             Список ключевых тезисов
         """
-        print("\n" + "=" * 60)
-        print(f"[LLM] 🎯 Extracting {num_points} key points")
-        print("=" * 60)
-        print(f"[LLM] Input: {len(summaries)} summaries")
+        logger.info("=" * 60)
+        logger.info(f"[LLM] Extracting {num_points} key points")
+        logger.info("=" * 60)
+        logger.info(f"[LLM] Input: {len(summaries)} summaries")
 
         # Объединяем суммаризации
         combined_text = "\n\n".join([
@@ -354,12 +357,12 @@ class LLMProvider:
         Returns:
             Список вопросов с метаданными (и ответами, если with_answers=True)
         """
-        print("\n" + "=" * 60)
-        print(f"[LLM] ❓ Generating {num_questions} questions")
-        print("=" * 60)
-        print(f"[LLM] Input: {len(summaries)} summaries")
-        print(f"[LLM] With answers: {with_answers}")
-        print(f"[LLM] Difficulty mix: {difficulty_mix}")
+        logger.info("=" * 60)
+        logger.info(f"[LLM] Generating {num_questions} questions")
+        logger.info("=" * 60)
+        logger.info(f"[LLM] Input: {len(summaries)} summaries")
+        logger.info(f"[LLM] With answers: {with_answers}")
+        logger.info(f"[LLM] Difficulty mix: {difficulty_mix}")
 
         # Объединяем суммаризации
         combined_text = "\n\n".join([
@@ -488,10 +491,10 @@ class LLMProvider:
                 "explanation": current_explanation
             })
 
-        print(f"\n[LLM] ✅ Successfully parsed {len(questions)} questions")
+        logger.info(f"[LLM] Successfully parsed {len(questions)} questions")
         if with_answers:
             questions_with_answers = sum(1 for q in questions if q.get('answer'))
-            print(f"[LLM] Questions with answers: {questions_with_answers}/{len(questions)}")
+            logger.info(f"[LLM] Questions with answers: {questions_with_answers}/{len(questions)}")
 
         return questions[:num_questions]
 
@@ -518,32 +521,32 @@ def main():
     ]
 
     # Генерация overview
-    print("\n=== OVERVIEW ===")
+    logger.info("\n=== OVERVIEW ===")
     overview = llm.generate_overview(example_summaries)
-    print(overview)
+    logger.info(overview)
 
     # Извлечение ключевых тезисов
-    print("\n=== KEY POINTS ===")
+    logger.info("\n=== KEY POINTS ===")
     key_points = llm.extract_key_points(example_summaries, num_points=3)
     for i, point in enumerate(key_points, 1):
-        print(f"{i}. {point}")
+        logger.info(f"{i}. {point}")
 
     # Генерация вопросов с ответами (Phase 3)
-    print("\n=== QUESTIONS WITH ANSWERS ===")
+    logger.info("\n=== QUESTIONS WITH ANSWERS ===")
     questions = llm.generate_questions(example_summaries, num_questions=3, with_answers=True)
     for q in questions:
-        print(f"\n[{q['difficulty'].upper()}] {q['question']}")
+        logger.info(f"\n[{q['difficulty'].upper()}] {q['question']}")
         if q.get('answer'):
-            print(f"  Ответ: {q['answer']}")
+            logger.info(f"  Ответ: {q['answer']}")
         if q.get('explanation'):
-            print(f"  Объяснение: {q['explanation']}")
+            logger.info(f"  Объяснение: {q['explanation']}")
 
     # Статистика кэша
     if llm.cache:
         stats = llm.cache.get_stats()
-        print(f"\n=== CACHE STATS ===")
-        print(f"Entries: {stats['total_entries']}")
-        print(f"Estimated tokens saved: {stats['estimated_tokens_saved']}")
+        logger.info(f"\n=== CACHE STATS ===")
+        logger.info(f"Entries: {stats['total_entries']}")
+        logger.info(f"Estimated tokens saved: {stats['estimated_tokens_saved']}")
 
 
 if __name__ == "__main__":
