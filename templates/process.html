@@ -163,13 +163,19 @@
                     </div>
 
                     <!-- Phase 3: Новые чекбоксы для LLM и KeyBERT -->
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-12 mb-3">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useLLM" checked>
                             <label class="form-check-label" for="useLLM">
-                                <i class="bi bi-robot"></i> Использовать LLM (GigaChat) для качественной генерации
+                                <i class="bi bi-robot"></i> <strong>Использовать GigaChat для качественной обработки</strong>
+                                <span class="badge bg-success ms-2">Рекомендуется</span>
                             </label>
-                            <small class="form-text text-muted d-block">Улучшает качество суммаризаций, вопросов и ключевых тезисов</small>
+                            <small class="form-text text-muted d-block mt-1">
+                                ✓ Суммаризация сегментов через нейросеть<br>
+                                ✓ Качественные ключевые тезисы и overview<br>
+                                ✓ Генерация вопросов с правильными ответами<br>
+                                ⚠️ Требуется настройка .env файла (<a href="#" data-bs-toggle="modal" data-bs-target="#gigachatInfoModal">как настроить?</a>)
+                            </small>
                         </div>
                     </div>
 
@@ -286,6 +292,65 @@
                         <i class="bi bi-arrow-repeat"></i> Обработать ещё
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно с инструкцией по GigaChat -->
+<div class="modal fade" id="gigachatInfoModal" tabindex="-1" aria-labelledby="gigachatInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h5 class="modal-title" id="gigachatInfoModalLabel">
+                    <i class="bi bi-robot"></i> Настройка GigaChat API
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>GigaChat</strong> - это российская нейросеть от Сбербанка для генерации текста.
+                    Она создает более качественные суммаризации чем локальная T5 модель.
+                </div>
+
+                <h6 class="mt-4"><i class="bi bi-1-circle-fill text-primary"></i> Получите API ключ</h6>
+                <ol>
+                    <li>Перейдите на <a href="https://developers.sber.ru/studio/workspaces" target="_blank">https://developers.sber.ru/studio/workspaces</a></li>
+                    <li>Войдите через Сбер ID</li>
+                    <li>Создайте проект "GigaChat API"</li>
+                    <li>Скопируйте <strong>Client Secret</strong> (это ваш API ключ)</li>
+                </ol>
+
+                <h6 class="mt-4"><i class="bi bi-2-circle-fill text-primary"></i> Настройте .env файл</h6>
+                <p>Создайте файл <code>.env</code> в корне проекта со следующим содержимым:</p>
+                <pre class="bg-dark text-light p-3 rounded"><code>GIGACHAT_CREDENTIALS=ваш_client_secret_здесь
+GIGACHAT_SCOPE=GIGACHAT_API_PERS</code></pre>
+
+                <h6 class="mt-4"><i class="bi bi-3-circle-fill text-primary"></i> Перезапустите веб-интерфейс</h6>
+                <pre class="bg-dark text-light p-3 rounded"><code>python web_app.py</code></pre>
+
+                <div class="alert alert-success mt-4">
+                    <i class="bi bi-check-circle"></i>
+                    <strong>Готово!</strong> Теперь система будет использовать GigaChat для создания качественных суммаризаций.
+                </div>
+
+                <h6 class="mt-3"><i class="bi bi-book"></i> Подробная документация:</h6>
+                <ul>
+                    <li><a href="https://github.com/RuslanPogosyants/diplom/blob/main/GIGACHAT_SETUP.md" target="_blank">GIGACHAT_SETUP.md</a> - полная инструкция</li>
+                    <li><a href="https://github.com/RuslanPogosyants/diplom/blob/main/GIGACHAT_SUMMARIZATION.md" target="_blank">GIGACHAT_SUMMARIZATION.md</a> - как работает суммаризация</li>
+                </ul>
+
+                <div class="alert alert-warning mt-3">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Без API ключа:</strong> Система автоматически переключится на локальную T5 модель (работает офлайн, но качество ниже).
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                <a href="https://developers.sber.ru/studio/workspaces" target="_blank" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-up-right"></i> Получить API ключ
+                </a>
             </div>
         </div>
     </div>
