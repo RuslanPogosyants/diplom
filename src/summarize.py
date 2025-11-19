@@ -5,7 +5,7 @@ import json
 import time
 import torch
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 from tqdm import tqdm
 
@@ -25,7 +25,8 @@ class SegmentSummarizer:
             device: str = "auto",
             max_input_length: int = 600,
             max_output_length: int = 150,
-            cache_dir: str = "models/summarization"
+            cache_dir: str = "models/summarization",
+            use_llm: bool = False
     ):
         """
         Args:
@@ -34,39 +35,67 @@ class SegmentSummarizer:
             max_input_length: максимальная длина входа в токенах
             max_output_length: максимальная длина суммаризации
             cache_dir: директория для кэширования моделей
+            use_llm: использовать LLM (GigaChat) вместо T5 модели
         """
-        logger.info(f"Loading summarization model: {model_name}")
-
-        # Определение устройства (централизованно)
-        self.device = resolve_device(device)
-
-        # Загрузка модели и токенизатора
-        try:
-            self.tokenizer = T5Tokenizer.from_pretrained(
-                model_name,
-                cache_dir=cache_dir
-            )
-            self.model = T5ForConditionalGeneration.from_pretrained(
-                model_name,
-                cache_dir=cache_dir
-            ).to(self.device)
-
-            logger.info("Model loaded successfully")
-
-            # Проверка VRAM
-            if self.device == "cuda":
-                memory_allocated = torch.cuda.memory_allocated(0) / 1024 ** 3
-                logger.info(f"VRAM allocated: {memory_allocated:.2f} GB")
-
-        except Exception as e:
-            logger.error(f"Failed to load model: {e}", exc_info=True)
-            raise
-
+        self.use_llm = use_llm
         self.max_input_length = max_input_length
         self.max_output_length = max_output_length
 
-        # Перевод модели в режим eval
-        self.model.eval()
+        if use_llm:
+            # Используем GigaChat для суммаризации
+            logger.info("Using GigaChat LLM for summarization")
+            try:
+                from .llm_provider import LLMProvider, LLMConfig
+
+                config = LLMConfig(
+                    provider="gigachat",
+                    model="GigaChat",
+                    temperature=0.3,
+                    max_tokens=max_output_length * 4,  # Примерная конвертация в токены
+                    use_cache=True
+                )
+                self.llm = LLMProvider(config)
+                logger.info("GigaChat provider initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize GigaChat: {e}", exc_info=True)
+                raise
+
+            # Заглушки для совместимости
+            self.model = None
+            self.tokenizer = None
+            self.device = None
+        else:
+            # Используем локальную T5 модель
+            logger.info(f"Loading summarization model: {model_name}")
+
+            # Определение устройства (централизованно)
+            self.device = resolve_device(device)
+
+            # Загрузка модели и токенизатора
+            try:
+                self.tokenizer = T5Tokenizer.from_pretrained(
+                    model_name,
+                    cache_dir=cache_dir
+                )
+                self.model = T5ForConditionalGeneration.from_pretrained(
+                    model_name,
+                    cache_dir=cache_dir
+                ).to(self.device)
+
+                logger.info("Model loaded successfully")
+
+                # Проверка VRAM
+                if self.device == "cuda":
+                    memory_allocated = torch.cuda.memory_allocated(0) / 1024 ** 3
+                    logger.info(f"VRAM allocated: {memory_allocated:.2f} GB")
+
+            except Exception as e:
+                logger.error(f"Failed to load model: {e}", exc_info=True)
+                raise
+
+            # Перевод модели в режим eval
+            self.model.eval()
+            self.llm = None
 
     @staticmethod
     def preprocess_text(text: str) -> str:
@@ -129,37 +158,64 @@ class SegmentSummarizer:
 
         Args:
             text: входной текст
-            num_beams: количество лучей для beam search
-            length_penalty: штраф за длину (>1 - длиннее, <1 - короче)
-            no_repeat_ngram_size: предотвращение повторов n-грамм
+            num_beams: количество лучей для beam search (только для T5)
+            length_penalty: штраф за длину (>1 - длиннее, <1 - короче) (только для T5)
+            no_repeat_ngram_size: предотвращение повторов n-грамм (только для T5)
 
         Returns:
             Суммаризированный текст
         """
-        # Токенизация
-        inputs = self.tokenizer(
-            text,
-            max_length=self.max_input_length,
-            truncation=True,
-            padding="max_length",
-            return_tensors="pt"
-        ).to(self.device)
+        if self.use_llm:
+            # Суммаризация через GigaChat
+            system_prompt = """Ты - профессиональный суммаризатор образовательного контента.
+Твоя задача - создать краткое, но информативное резюме текста, сохраняя все ключевые моменты."""
 
-        # Генерация
-        with torch.no_grad():
-            outputs = self.model.generate(
-                inputs.input_ids,
-                max_length=self.max_output_length,
-                num_beams=num_beams,
-                length_penalty=length_penalty,
-                no_repeat_ngram_size=no_repeat_ngram_size,
-                early_stopping=True,
-                do_sample=False
-            )
+            user_prompt = f"""Суммаризируй следующий фрагмент образовательной лекции.
+Создай краткое резюме (2-4 предложения), которое передаёт суть и ключевые идеи.
+Используй русский язык. Не добавляй вводные слова типа "В этом фрагменте...".
 
-        # Декодирование
-        summary = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return summary.strip()
+Текст:
+{text}
+
+Суммаризация:"""
+
+            try:
+                summary = self.llm._chat_with_cache(
+                    prompt=user_prompt,
+                    system_prompt=system_prompt,
+                    temperature=0.3
+                )
+                return summary.strip()
+            except Exception as e:
+                logger.error(f"GigaChat summarization failed: {e}", exc_info=True)
+                # Fallback: возвращаем первые 200 символов
+                return text[:200] + "..." if len(text) > 200 else text
+        else:
+            # Суммаризация через T5 модель
+            # Токенизация
+            inputs = self.tokenizer(
+                text,
+                max_length=self.max_input_length,
+                truncation=True,
+                padding="max_length",
+                return_tensors="pt"
+            ).to(self.device)
+
+            # Генерация
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    inputs.input_ids,
+                    max_length=self.max_output_length,
+                    num_beams=num_beams,
+                    length_penalty=length_penalty,
+                    no_repeat_ngram_size=no_repeat_ngram_size,
+                    early_stopping=True,
+                    do_sample=False
+                )
+
+            # Декодирование
+            summary = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            return summary.strip()
 
     def summarize_segments(
             self,
