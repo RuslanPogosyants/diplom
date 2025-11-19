@@ -2,6 +2,7 @@
 Суммаризация сегментов транскрипции
 """
 import json
+import time
 import torch
 from pathlib import Path
 from typing import List, Dict
@@ -10,6 +11,9 @@ from tqdm import tqdm
 
 # Импорт утилит для работы с устройствами
 from .utils import resolve_device
+from .logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class SegmentSummarizer:
@@ -31,7 +35,7 @@ class SegmentSummarizer:
             max_output_length: максимальная длина суммаризации
             cache_dir: директория для кэширования моделей
         """
-        print(f"[INFO] Loading summarization model: {model_name}")
+        logger.info(f"Loading summarization model: {model_name}")
 
         # Определение устройства (централизованно)
         self.device = resolve_device(device)
@@ -47,15 +51,15 @@ class SegmentSummarizer:
                 cache_dir=cache_dir
             ).to(self.device)
 
-            print(f"[✓] Model loaded successfully")
+            logger.info("Model loaded successfully")
 
             # Проверка VRAM
             if self.device == "cuda":
                 memory_allocated = torch.cuda.memory_allocated(0) / 1024 ** 3
-                print(f"[INFO] VRAM allocated: {memory_allocated:.2f} GB")
+                logger.info(f"VRAM allocated: {memory_allocated:.2f} GB")
 
         except Exception as e:
-            print(f"[✗] Failed to load model: {e}")
+            logger.error(f"Failed to load model: {e}", exc_info=True)
             raise
 
         self.max_input_length = max_input_length
@@ -174,32 +178,35 @@ class SegmentSummarizer:
         Returns:
             Список сегментов с добавленным полем 'summary'
         """
-        print(f"[INFO] Summarizing {len(segments)} segments")
+        logger.info(f"Summarizing {len(segments)} segments")
 
         summarized_segments = []
         iterator = tqdm(segments, desc="Summarizing") if show_progress else segments
 
-        for segment in iterator:
+        for idx, segment in enumerate(iterator, 1):
+            segment_start_time = time.time()
             text = segment["text"]
             summary = ""  # ВАЖНО: инициализация по умолчанию
+            segment_id = segment.get('id', idx - 1)
+
+            logger.info(f"Processing segment {idx}/{len(segments)} (ID: {segment_id})")
 
             # Предобработка текста (очистка от мусора)
             try:
                 text_cleaned = self.preprocess_text(text)
             except Exception as e:
-                print(f"[WARN] Error preprocessing segment {segment.get('id', '?')}: {e}")
+                logger.warning(f"Error preprocessing segment {segment_id}: {e}")
                 text_cleaned = text  # Fallback на оригинал
 
             # Пропускаем слишком короткие тексты
             if len(text_cleaned) < min_text_length:
                 summary = text_cleaned if text_cleaned else text
-                if show_progress:
-                    print(f"[WARN] Segment {segment.get('id', '?')} too short ({len(text_cleaned)} chars), skipping summarization")
+                logger.warning(f"Segment {segment_id} too short ({len(text_cleaned)} chars), skipping summarization")
             else:
                 try:
                     summary = self.summarize_text(text_cleaned)
                 except Exception as e:
-                    print(f"[✗] Error summarizing segment {segment.get('id', '?')}: {e}")
+                    logger.error(f"Error summarizing segment {segment_id}: {e}", exc_info=True)
                     # Fallback: первые 200 символов или весь текст
                     summary = text_cleaned[:200] + "..." if len(text_cleaned) > 200 else text_cleaned
 
@@ -212,16 +219,24 @@ class SegmentSummarizer:
 
             summarized_segments.append(segment_with_summary)
 
-        print(f"[✓] Summarization complete!")
+            # Детальное логирование прогресса после завершения сегмента
+            elapsed = time.time() - segment_start_time
+            logger.info(
+                f"✓ Segment {idx}/{len(segments)} completed in {elapsed:.1f}s - "
+                f"{segment_with_summary['original_length']} → {segment_with_summary['summary_length']} chars "
+                f"({segment_with_summary['compression_ratio']:.1f}x compression)"
+            )
+
+        logger.info("Summarization complete!")
 
         # Статистика
         total_original = sum(s["original_length"] for s in summarized_segments)
         total_summary = sum(s["summary_length"] for s in summarized_segments)
         avg_compression = total_original / total_summary if total_summary > 0 else 0
 
-        print(f"[INFO] Original length: {total_original} chars")
-        print(f"[INFO] Summary length: {total_summary} chars")
-        print(f"[INFO] Compression ratio: {avg_compression:.2f}x")
+        logger.info(f"Original length: {total_original} chars")
+        logger.info(f"Summary length: {total_summary} chars")
+        logger.info(f"Compression ratio: {avg_compression:.2f}x")
 
         return summarized_segments
 
@@ -240,7 +255,7 @@ class SegmentSummarizer:
         Returns:
             Мета-суммаризация
         """
-        print(f"[INFO] Creating meta-summary from {len(segment_summaries)} summaries")
+        logger.info(f"Creating meta-summary from {len(segment_summaries)} summaries")
 
         # Объединяем все суммаризации
         combined = " ".join(segment_summaries)
@@ -270,12 +285,12 @@ class SegmentSummarizer:
             if current_chunk:
                 chunks.append(" ".join(current_chunk))
 
-            print(f"[INFO] Split into {len(chunks)} chunks for meta-summarization")
+            logger.info(f"Split into {len(chunks)} chunks for meta-summarization")
 
             # Суммаризируем каждую часть
             chunk_summaries = []
             for i, chunk in enumerate(chunks):
-                print(f"[INFO] Summarizing chunk {i + 1}/{len(chunks)}")
+                logger.info(f"Summarizing chunk {i + 1}/{len(chunks)}")
                 summary = self.summarize_text(chunk)
                 chunk_summaries.append(summary)
 
@@ -283,7 +298,7 @@ class SegmentSummarizer:
             combined_summaries = " ".join(chunk_summaries)
             meta_summary = self.summarize_text(combined_summaries)
 
-        print(f"[✓] Meta-summary created ({len(meta_summary)} chars)")
+        logger.info(f"Meta-summary created ({len(meta_summary)} chars)")
         return meta_summary
 
     def extract_key_points(
@@ -301,7 +316,7 @@ class SegmentSummarizer:
         Returns:
             Список ключевых тезисов
         """
-        print(f"[INFO] Extracting {num_points} key points")
+        logger.info(f"Extracting {num_points} key points")
 
         # Простая эвристика: берём самые длинные сегменты
         sorted_segments = sorted(
@@ -334,9 +349,9 @@ class SegmentSummarizer:
         Returns:
             Dict с результатами суммаризации
         """
-        print(f"\n{'=' * 60}")
-        print("[INFO] Starting summarization process")
-        print(f"{'=' * 60}\n")
+        logger.info("=" * 60)
+        logger.info("Starting summarization process")
+        logger.info("=" * 60)
 
         # Загрузка сегментов
         with open(segments_path, 'r', encoding='utf-8') as f:
@@ -376,7 +391,7 @@ class SegmentSummarizer:
         json_path = output_dir / "summaries_per_segment.json"
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(summaries, f, ensure_ascii=False, indent=2)
-        print(f"[✓] Saved: {json_path}")
+        logger.info(f"Saved: {json_path}")
 
         # Читаемый формат
         txt_path = output_dir / "summaries_readable.txt"
@@ -409,7 +424,7 @@ class SegmentSummarizer:
                 f.write(f"ОРИГИНАЛЬНЫЙ ТЕКСТ:\n{seg['text'][:300]}...\n")
                 f.write(f"\n{'=' * 60}\n\n")
 
-        print(f"[✓] Saved: {txt_path}")
+        logger.info(f"Saved: {txt_path}")
 
     @staticmethod
     def _format_time(seconds: float) -> str:
@@ -461,8 +476,8 @@ def main():
         with open(checkpoint_path, 'w', encoding='utf-8') as f:
             json.dump(checkpoint, f, ensure_ascii=False, indent=2)
 
-    print(f"\n[SUCCESS] Summarization complete!")
-    print(f"[INFO] Meta-summary: {summaries['meta_summary'][:100]}...")
+    logger.info("Summarization complete!")
+    logger.info(f"Meta-summary: {summaries['meta_summary'][:100]}...")
 
 
 if __name__ == "__main__":
