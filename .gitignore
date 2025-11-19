@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Models (большие файлы)
+models/
+*.pth
+*.bin
+*.pt
+
+# Artifacts (результаты обработки)
+artifacts/
+*.wav
+*.mp4
+*.avi
+*.mkv
+
+# Logs
+logs/
+*.log
+
+# LLM Cache
+.llm_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local

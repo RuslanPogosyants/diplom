@@ -13,6 +13,11 @@ import threading
 import time
 import sys
 
+# Импорт логирования
+from src.logger import get_logger, TaskLogger
+
+# Инициализация логгера
+logger = get_logger("web_app")
 
 app = Flask(__name__)
 app.config['ARTIFACTS_DIR'] = Path('artifacts')
@@ -291,10 +296,14 @@ def upload_file():
 
 def run_processing(file_path: str, task_id: str, options: Dict):
     """Запуск обработки в отдельном потоке"""
+    # Создаем логгер для задачи
+    task_logger = TaskLogger(task_id, logger)
+
     try:
         processing_tasks[task_id]['status'] = 'running'
         processing_tasks[task_id]['stage'] = 'Подготовка...'
         processing_tasks[task_id]['progress'] = 5
+        task_logger.info(f"Starting processing: {file_path}")
 
         # Формируем команду
         cmd = [
@@ -324,14 +333,15 @@ def run_processing(file_path: str, task_id: str, options: Dict):
         processing_tasks[task_id]['stage'] = 'Запуск обработки...'
         processing_tasks[task_id]['progress'] = 10
 
-        # Запускаем процесс
+        # Запускаем процесс с явной кодировкой UTF-8 (исправление для Windows)
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=1,
-            universal_newlines=True
+            encoding='utf-8',  # Явная UTF-8 кодировка
+            errors='replace',  # Замена проблемных символов вместо краша
+            bufsize=1
         )
 
         processing_tasks[task_id]['process'] = process
@@ -341,7 +351,7 @@ def run_processing(file_path: str, task_id: str, options: Dict):
 
         # Читаем stdout
 
-        print(f"[Task {task_id}] Процесс запущен, читаем вывод...")
+        task_logger.info("Process started, reading output...")
 
         # Читаем stdout
 
@@ -355,7 +365,7 @@ def run_processing(file_path: str, task_id: str, options: Dict):
 
                     output_lines.append(line_stripped)
 
-                    print(f"[Task {task_id}] {line_stripped}")  # Выводим в консоль сервера для отладки
+                    task_logger.debug(line_stripped)  # Выводим в консоль сервера для отладки
                 # Обновляем статус на основе вывода (с учетом номеров этапов и английских названий)
 
                 if '[1/8]' in line or 'Транскрибация' in line or 'Transcription' in line or 'Transcribing' in line:
@@ -413,7 +423,7 @@ def run_processing(file_path: str, task_id: str, options: Dict):
                     processing_tasks[task_id]['progress'] = 100
         # Ждём завершения и читаем stderr
 
-        print(f"[Task {task_id}] Процесс завершен, читаем stderr...")
+        task_logger.info("Process finished, reading stderr...")
 
         return_code = process.wait()
 
@@ -426,15 +436,15 @@ def run_processing(file_path: str, task_id: str, options: Dict):
 
                 if stderr_output:
 
-                    print(f"[Task {task_id}] STDERR: {stderr_output}")
+                    task_logger.warning(f"STDERR output: {stderr_output[:500]}")
 
             except Exception as e:
 
-                print(f"[Task {task_id}] Failed to read stderr: {e}")
+                task_logger.error(f"Failed to read stderr: {e}")
 
                 stderr_output = ""
 
-        print(f"[Task {task_id}] Return code: {return_code}")
+        task_logger.info(f"Process exit code: {return_code}")
 
         if return_code == 0:
 
@@ -571,11 +581,12 @@ def cancel_processing(task_id):
 
 
 if __name__ == '__main__':
-    print("=" * 60)
-    print("Video Intelligence System - Web Interface")
-    print("=" * 60)
-    print(f"Artifacts directory: {app.config['ARTIFACTS_DIR']}")
-    print(f"Starting server at http://localhost:5000")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Video Intelligence System - Web Interface")
+    logger.info("=" * 60)
+    logger.info(f"Artifacts directory: {app.config['ARTIFACTS_DIR']}")
+    logger.info("Starting server at http://localhost:5000")
+    logger.info("Logs are being saved to: logs/")
+    logger.info("=" * 60)
 
     app.run(debug=True, host='0.0.0.0', port=5000)
