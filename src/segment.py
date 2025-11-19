@@ -12,6 +12,9 @@ from sklearn.cluster import AgglomerativeClustering
 import nltk
 from tqdm import tqdm
 
+# Импорт утилит для работы с устройствами
+from .utils import resolve_device
+
 # Загрузка punkt для сегментации предложений
 try:
     nltk.data.find('tokenizers/punkt')
@@ -31,14 +34,15 @@ class TranscriptSegmenter:
         """
         Args:
             model_name: название модели для эмбеддингов
-            device: cuda или cpu
+            device: cuda, cpu, или auto (автоопределение)
             cache_dir: директория для кэширования моделей
         """
-        print(f"[INFO] Loading sentence transformer: {model_name}")
-        self.model = SentenceTransformer(model_name, device=device, cache_folder=cache_dir)
-        print(f"[✓] Model loaded on {device}")
+        # Конвертируем 'auto' в реальное устройство
+        self.device = resolve_device(device)
 
-        self.device = device
+        print(f"[INFO] Loading sentence transformer: {model_name}")
+        self.model = SentenceTransformer(model_name, device=self.device, cache_folder=cache_dir)
+        print(f"[✓] Model loaded on {self.device}")
 
     def split_into_sentences(self, text: str) -> List[str]:
         """Разбивка текста на предложения"""

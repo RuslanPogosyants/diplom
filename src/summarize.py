@@ -8,6 +8,9 @@ from typing import List, Dict
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 from tqdm import tqdm
 
+# Импорт утилит для работы с устройствами
+from .utils import resolve_device
+
 
 class SegmentSummarizer:
     """Суммаризация текстовых сегментов"""
@@ -30,13 +33,8 @@ class SegmentSummarizer:
         """
         print(f"[INFO] Loading summarization model: {model_name}")
 
-        # Определение устройства
-        if device == "auto":
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        else:
-            self.device = device
-
-        print(f"[INFO] Using device: {self.device}")
+        # Определение устройства (централизованно)
+        self.device = resolve_device(device)
 
         # Загрузка модели и токенизатора
         try:

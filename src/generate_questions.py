@@ -10,6 +10,9 @@ from typing import List, Dict, Optional
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 import random
 
+# Импорт утилит для работы с устройствами
+from .utils import resolve_device
+
 
 class QuestionGenerator:
     """Генерация вопросов для самопроверки"""
@@ -52,12 +55,8 @@ class QuestionGenerator:
         if use_model and not use_llm:
             print(f"[INFO] Loading question generation model: {model_name}")
 
-            if device == "auto":
-                self.device = "cuda" if torch.cuda.is_available() else "cpu"
-            else:
-                self.device = device
-
-            print(f"[INFO] Using device: {self.device}")
+            # Определение устройства (централизованно)
+            self.device = resolve_device(device)
 
             try:
                 self.tokenizer = T5Tokenizer.from_pretrained(
