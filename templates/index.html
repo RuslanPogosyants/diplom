@@ -7,9 +7,8 @@
     <div class="col-12">
         <div class="card">
             <div class="card-body text-center py-5">
-                <i class="bi bi-camera-video" style="font-size: 3rem; color: var(--primary-color);"></i>
-                <h1 class="mt-3 mb-2">Video Intelligence System</h1>
-                <p class="text-muted">Интеллектуальный анализ образовательных видео с помощью AI</p>
+                <h1 class="mt-3 mb-2" style="font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">VIDEO INTELLIGENCE SYSTEM</h1>
+                <p class="text-muted" style="text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.5px;">Intelligent Analysis of Educational Videos</p>
             </div>
         </div>
     </div>
@@ -19,30 +18,26 @@
 <div class="row mb-4">
     <div class="col-md-3">
         <div class="stat-card">
-            <i class="bi bi-collection-play" style="font-size: 2rem;"></i>
             <div class="stat-value">{{ sessions|length }}</div>
-            <div class="stat-label">Обработано видео</div>
+            <div class="stat-label">Videos Processed</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            <i class="bi bi-cpu" style="font-size: 2rem;"></i>
+        <div class="stat-card" style="border-left-color: var(--accent-green);">
             <div class="stat-value">AI</div>
             <div class="stat-label">Powered</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-            <i class="bi bi-translate" style="font-size: 2rem;"></i>
+        <div class="stat-card" style="border-left-color: var(--accent-blue);">
             <div class="stat-value">RU</div>
-            <div class="stat-label">Язык</div>
+            <div class="stat-label">Language</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-            <i class="bi bi-lightning-charge" style="font-size: 2rem;"></i>
+        <div class="stat-card" style="border-left-color: var(--accent-orange);">
             <div class="stat-value">8</div>
-            <div class="stat-label">Этапов анализа</div>
+            <div class="stat-label">Pipeline Stages</div>
         </div>
     </div>
 </div>
@@ -50,15 +45,14 @@
 <!-- Информация о GigaChat -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="alert alert-success d-flex align-items-center" role="alert" style="border-radius: 16px; border: none; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);">
-            <i class="bi bi-robot fs-1 me-3"></i>
+        <div class="alert alert-success d-flex align-items-center" role="alert">
             <div class="flex-grow-1">
-                <h5 class="alert-heading mb-1">
-                    <i class="bi bi-check-circle-fill"></i> GigaChat включен по умолчанию
+                <h5 class="alert-heading mb-1" style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+                    <i class="bi bi-check-circle-fill"></i> GigaChat Enabled by Default
                 </h5>
                 <p class="mb-0">
-                    Система использует нейросеть GigaChat для создания качественных суммаризаций, ключевых тезисов и вопросов.
-                    <a href="/process" class="alert-link">Узнать больше →</a>
+                    System uses GigaChat neural network for high-quality summarization, key points, and question generation.
+                    <a href="/process" class="alert-link" style="font-weight: 600;">Configure →</a>
                 </p>
             </div>
         </div>
@@ -68,8 +62,8 @@
 <!-- Кнопка обработки нового видео -->
 <div class="row mb-4">
     <div class="col-12 text-center">
-        <a href="/process" class="btn btn-primary btn-lg" style="padding: 1rem 3rem; font-size: 1.2rem;">
-            <i class="bi bi-plus-circle"></i> Обработать новое видео
+        <a href="/process" class="btn btn-primary btn-lg" style="padding: 1rem 3rem;">
+            Process New Video
         </a>
     </div>
 </div>
@@ -80,10 +74,10 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div>
-                    <i class="bi bi-list-ul"></i> Обработанные видео
+                    Processed Videos
                 </div>
-                <a href="/process" class="btn btn-sm btn-light">
-                    <i class="bi bi-plus"></i> Добавить
+                <a href="/process" class="btn btn-sm btn-secondary">
+                    Add New
                 </a>
             </div>
             <div class="card-body">
@@ -92,21 +86,11 @@
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th width="20%">
-                                        <i class="bi bi-calendar"></i> Дата
-                                    </th>
-                                    <th width="40%">
-                                        <i class="bi bi-file-earmark-text"></i> Источник
-                                    </th>
-                                    <th width="15%">
-                                        <i class="bi bi-gear"></i> Этап
-                                    </th>
-                                    <th width="10%">
-                                        <i class="bi bi-clock"></i> Длительность
-                                    </th>
-                                    <th width="15%" class="text-end">
-                                        <i class="bi bi-box-arrow-up-right"></i> Действия
-                                    </th>
+                                    <th width="20%">Date</th>
+                                    <th width="40%">Source</th>
+                                    <th width="15%">Stage</th>
+                                    <th width="10%">Duration</th>
+                                    <th width="15%" class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -122,17 +106,11 @@
                                     </td>
                                     <td>
                                         {% if session.stage == 'export_complete' %}
-                                            <span class="badge bg-success">
-                                                <i class="bi bi-check-circle"></i> Завершено
-                                            </span>
+                                            <span class="badge bg-success">Complete</span>
                                         {% elif 'complete' in session.stage %}
-                                            <span class="badge bg-info">
-                                                <i class="bi bi-hourglass-split"></i> В процессе
-                                            </span>
+                                            <span class="badge bg-info">Processing</span>
                                         {% else %}
-                                            <span class="badge bg-warning">
-                                                <i class="bi bi-exclamation-triangle"></i> {{ session.stage }}
-                                            </span>
+                                            <span class="badge bg-warning">{{ session.stage }}</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -146,7 +124,7 @@
                                     </td>
                                     <td class="text-end">
                                         <a href="/session/{{ session.id }}" class="btn btn-primary btn-sm">
-                                            <i class="bi bi-eye"></i> Просмотр
+                                            View
                                         </a>
                                     </td>
                                 </tr>
@@ -156,9 +134,8 @@
                     </div>
                 {% else %}
                     <div class="alert alert-info" role="alert">
-                        <i class="bi bi-info-circle"></i>
-                        <strong>Нет обработанных видео</strong><br>
-                        Запустите обработку видео с помощью CLI:
+                        <strong style="text-transform: uppercase;">No Processed Videos</strong><br>
+                        Start video processing via CLI:
                         <code class="ms-2">python -m src.cli process-all your_video.mp4</code>
                     </div>
                 {% endif %}
@@ -173,58 +150,58 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <i class="bi bi-book"></i> Как использовать систему
+                System Usage
             </div>
             <div class="card-body">
-                <h5>Быстрый старт:</h5>
+                <h5 style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Quick Start:</h5>
                 <ol class="mt-3">
                     <li class="mb-2">
-                        <strong>Транскрибация видео:</strong>
+                        <strong>Video Transcription:</strong>
                         <pre class="mt-2"><code>python -m src.cli transcribe your_video.mp4</code></pre>
                     </li>
                     <li class="mb-2">
-                        <strong>Полный пайплайн (рекомендуется):</strong>
+                        <strong>Full Pipeline (Recommended):</strong>
                         <pre class="mt-2"><code>python -m src.cli process-all your_video.mp4 --language ru</code></pre>
                     </li>
                     <li class="mb-2">
-                        <strong>Запуск веб-интерфейса:</strong>
+                        <strong>Start Web Interface:</strong>
                         <pre class="mt-2"><code>python web_app.py</code></pre>
                     </li>
                 </ol>
 
-                <h5 class="mt-4">Этапы обработки:</h5>
+                <h5 class="mt-4" style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Processing Pipeline:</h5>
                 <div class="row mt-3">
                     <div class="col-md-6">
                         <ul class="list-unstyled">
                             <li class="mb-2">
-                                <i class="bi bi-1-circle-fill text-primary"></i> Транскрибация (Whisper)
+                                <span class="badge bg-secondary">1</span> Transcription (Whisper)
                             </li>
                             <li class="mb-2">
-                                <i class="bi bi-2-circle-fill text-primary"></i> Сегментация (Semantic)
+                                <span class="badge bg-secondary">2</span> Segmentation (Semantic)
                             </li>
                             <li class="mb-2">
-                                <i class="bi bi-3-circle-fill text-primary"></i> Суммаризация
+                                <span class="badge bg-secondary">3</span> Summarization
                                 <span class="badge bg-success">GigaChat</span>
                                 <small class="text-muted">/ T5</small>
                             </li>
                             <li class="mb-2">
-                                <i class="bi bi-4-circle-fill text-primary"></i> Мета-анализ
+                                <span class="badge bg-secondary">4</span> Meta-Analysis
                             </li>
                         </ul>
                     </div>
                     <div class="col-md-6">
                         <ul class="list-unstyled">
                             <li class="mb-2">
-                                <i class="bi bi-5-circle-fill text-primary"></i> Извлечение терминов (SpaCy)
+                                <span class="badge bg-secondary">5</span> Term Extraction (SpaCy)
                             </li>
                             <li class="mb-2">
-                                <i class="bi bi-6-circle-fill text-primary"></i> Генерация вопросов
+                                <span class="badge bg-secondary">6</span> Question Generation
                             </li>
                             <li class="mb-2">
-                                <i class="bi bi-7-circle-fill text-primary"></i> Поиск статей
+                                <span class="badge bg-secondary">7</span> Article Search
                             </li>
                             <li class="mb-2">
-                                <i class="bi bi-8-circle-fill text-primary"></i> Экспорт (HTML/PDF)
+                                <span class="badge bg-secondary">8</span> Export (HTML/PDF)
                             </li>
                         </ul>
                     </div>

@@ -3,51 +3,51 @@
 {% block title %}Обработка файлов - Video Intelligence System{% endblock %}
 
 {% block content %}
-<!-- Хлебные крошки -->
+<!-- Breadcrumb -->
 <nav aria-label="breadcrumb" class="mb-4">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="/" style="color: white; text-decoration: none;"><i class="bi bi-house"></i> Главная</a></li>
-        <li class="breadcrumb-item active" style="color: white;">Обработка файлов</li>
+    <ol class="breadcrumb" style="background: white; padding: 1rem; border: 1px solid var(--border-color);">
+        <li class="breadcrumb-item"><a href="/" style="text-decoration: none; color: var(--text-primary);">Dashboard</a></li>
+        <li class="breadcrumb-item active">Process Files</li>
     </ol>
 </nav>
 
-<!-- Заголовок -->
+<!-- Header -->
 <div class="row mb-4">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <i class="bi bi-gear-fill"></i> Обработка новых файлов
+                Process New Files
             </div>
             <div class="card-body text-center py-4">
-                <h4>Выберите аудио/видео файл для обработки</h4>
-                <p class="text-muted">Система автоматически транскрибирует, сегментирует, суммаризирует и проанализирует содержимое</p>
+                <h4 style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Select Audio/Video File</h4>
+                <p class="text-muted">System will automatically transcribe, segment, summarize and analyze content</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Табы: Выбор файла или загрузка -->
+<!-- Tabs: Select or Upload -->
 <div class="row mb-4">
     <div class="col-12">
         <ul class="nav nav-pills mb-3" id="fileTabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="select-tab" data-bs-toggle="pill" data-bs-target="#select" type="button">
-                    <i class="bi bi-folder2-open"></i> Выбрать из artifacts
+                    Select from artifacts
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="upload-tab" data-bs-toggle="pill" data-bs-target="#upload" type="button">
-                    <i class="bi bi-cloud-upload"></i> Загрузить новый файл
+                    Upload New File
                 </button>
             </li>
         </ul>
 
         <div class="tab-content" id="fileTabsContent">
-            <!-- Выбор существующего файла -->
+            <!-- Select Existing File -->
             <div class="tab-pane fade show active" id="select" role="tabpanel">
                 <div class="card">
                     <div class="card-header">
-                        <i class="bi bi-music-note-list"></i> Доступные файлы в папке artifacts
+                        Available Files in artifacts/
                     </div>
                     <div class="card-body">
                         {% if audio_files %}
@@ -55,19 +55,14 @@
                                 {% for file in audio_files %}
                                 <div class="list-group-item list-group-item-action audio-file-item"
                                      data-path="{{ file.full_path }}"
-                                     style="cursor: pointer; transition: all 0.3s ease;">
+                                     style="cursor: pointer; transition: all 0.2s ease;">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-file-earmark-music fs-3 me-3" style="color: var(--primary-color);"></i>
-                                            <div>
-                                                <h6 class="mb-1">{{ file.name }}</h6>
-                                                <small class="text-muted">
-                                                    <i class="bi bi-hdd"></i> {{ file.size_mb }} MB
-                                                    <span class="ms-3">
-                                                        <i class="bi bi-calendar"></i> {{ file.modified|format_datetime }}
-                                                    </span>
-                                                </small>
-                                            </div>
+                                        <div>
+                                            <h6 class="mb-1" style="font-family: 'Courier New', monospace;">{{ file.name }}</h6>
+                                            <small class="text-muted">
+                                                {{ file.size_mb }} MB
+                                                <span class="ms-3">{{ file.modified|format_datetime }}</span>
+                                            </small>
                                         </div>
                                         <i class="bi bi-check-circle text-success fs-3" style="display: none;"></i>
                                     </div>
@@ -76,26 +71,25 @@
                             </div>
                         {% else %}
                             <div class="alert alert-info" role="alert">
-                                <i class="bi bi-info-circle"></i>
-                                Нет доступных аудио/видео файлов в папке artifacts
+                                <strong style="text-transform: uppercase;">No Files Available</strong><br>
+                                No audio/video files found in artifacts/ directory
                             </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
 
-            <!-- Загрузка нового файла -->
+            <!-- Upload New File -->
             <div class="tab-pane fade" id="upload" role="tabpanel">
                 <div class="card">
                     <div class="card-header">
-                        <i class="bi bi-cloud-upload"></i> Загрузить файл
+                        Upload File
                     </div>
                     <div class="card-body">
                         <div class="upload-area p-5 text-center" id="uploadArea"
-                             style="border: 3px dashed #dee2e6; border-radius: 16px; background: #f8f9fa; cursor: pointer; transition: all 0.3s ease;">
-                            <i class="bi bi-cloud-arrow-up" style="font-size: 4rem; color: var(--primary-color);"></i>
-                            <h5 class="mt-3">Перетащите файл сюда или нажмите для выбора</h5>
-                            <p class="text-muted">Поддерживаемые форматы: WAV, MP3, MP4, M4A, AVI, MKV (макс. 500MB)</p>
+                             style="border: 2px dashed var(--border-color); border-radius: 2px; background: var(--bg-light); cursor: pointer; transition: all 0.2s ease;">
+                            <h5 class="mt-3" style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Drop File Here or Click to Select</h5>
+                            <p class="text-muted" style="font-family: 'Courier New', monospace; font-size: 0.85rem;">Supported: WAV, MP3, MP4, M4A, AVI, MKV (max 500MB)</p>
                             <input type="file" id="fileInput" accept=".wav,.mp3,.mp4,.m4a,.avi,.mkv" style="display: none;">
                         </div>
 
@@ -106,7 +100,7 @@
                                      style="width: 0%;"
                                      id="uploadProgressBar">0%</div>
                             </div>
-                            <p class="text-center mt-2" id="uploadStatus">Загрузка...</p>
+                            <p class="text-center mt-2" id="uploadStatus">Uploading...</p>
                         </div>
                     </div>
                 </div>
@@ -115,66 +109,66 @@
     </div>
 </div>
 
-<!-- Опции обработки -->
+<!-- Processing Options -->
 <div class="row mb-4" id="processingOptions" style="display: none;">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <i class="bi bi-sliders"></i> Параметры обработки
+                Processing Parameters
             </div>
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-4 mb-3">
-                        <label for="languageSelect" class="form-label">
-                            <i class="bi bi-translate"></i> Язык
+                        <label for="languageSelect" class="form-label" style="text-transform: uppercase; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px;">
+                            Language
                         </label>
                         <select class="form-select" id="languageSelect">
-                            <option value="ru" selected>Русский</option>
+                            <option value="ru" selected>Russian</option>
                             <option value="en">English</option>
-                            <option value="uk">Українська</option>
-                            <option value="es">Español</option>
-                            <option value="fr">Français</option>
-                            <option value="de">Deutsch</option>
+                            <option value="uk">Ukrainian</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
                         </select>
                     </div>
 
                     <div class="col-md-4 mb-3">
-                        <label for="modelSelect" class="form-label">
-                            <i class="bi bi-cpu"></i> Модель Whisper
+                        <label for="modelSelect" class="form-label" style="text-transform: uppercase; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px;">
+                            Whisper Model
                         </label>
                         <select class="form-select" id="modelSelect">
-                            <option value="tiny">Tiny (самая быстрая)</option>
-                            <option value="base" selected>Base (рекомендуется)</option>
-                            <option value="small">Small (лучшее качество)</option>
-                            <option value="medium">Medium (высокое качество)</option>
-                            <option value="large">Large (максимальное качество)</option>
+                            <option value="tiny">Tiny (fastest)</option>
+                            <option value="base" selected>Base (recommended)</option>
+                            <option value="small">Small (better quality)</option>
+                            <option value="medium">Medium (high quality)</option>
+                            <option value="large">Large (maximum quality)</option>
                         </select>
                     </div>
 
                     <div class="col-md-4 mb-3">
-                        <label for="deviceSelect" class="form-label">
-                            <i class="bi bi-hdd"></i> Устройство
+                        <label for="deviceSelect" class="form-label" style="text-transform: uppercase; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px;">
+                            Device
                         </label>
                         <select class="form-select" id="deviceSelect">
-                            <option value="auto" selected>Автоопределение</option>
+                            <option value="auto" selected>Auto-detect</option>
                             <option value="cuda">CUDA (GPU)</option>
                             <option value="cpu">CPU</option>
                         </select>
                     </div>
 
-                    <!-- Phase 3: Новые чекбоксы для LLM и KeyBERT -->
+                    <!-- LLM and Processing Options -->
                     <div class="col-md-12 mb-3">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useLLM" checked>
                             <label class="form-check-label" for="useLLM">
-                                <i class="bi bi-robot"></i> <strong>Использовать GigaChat для качественной обработки</strong>
-                                <span class="badge bg-success ms-2">Рекомендуется</span>
+                                <strong>Use GigaChat for High-Quality Processing</strong>
+                                <span class="badge bg-success ms-2">Recommended</span>
                             </label>
                             <small class="form-text text-muted d-block mt-1">
-                                ✓ Суммаризация сегментов через нейросеть<br>
-                                ✓ Качественные ключевые тезисы и overview<br>
-                                ✓ Генерация вопросов с правильными ответами<br>
-                                ⚠️ Требуется настройка .env файла (<a href="#" data-bs-toggle="modal" data-bs-target="#gigachatInfoModal">как настроить?</a>)
+                                • Segment summarization via neural network<br>
+                                • High-quality key points and overview<br>
+                                • Question generation with correct answers<br>
+                                • Requires .env configuration (<a href="#" data-bs-toggle="modal" data-bs-target="#gigachatInfoModal">setup guide</a>)
                             </small>
                         </div>
                     </div>
@@ -183,9 +177,9 @@
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useKeyBERT" checked>
                             <label class="form-check-label" for="useKeyBERT">
-                                <i class="bi bi-key"></i> Использовать KeyBERT для извлечения ключевых слов
+                                <strong>Use KeyBERT for Keyword Extraction</strong>
                             </label>
-                            <small class="form-text text-muted d-block">Семантическое извлечение ключевых понятий</small>
+                            <small class="form-text text-muted d-block">Semantic extraction of key concepts</small>
                         </div>
                     </div>
 
@@ -193,9 +187,9 @@
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="withAnswers" checked>
                             <label class="form-check-label" for="withAnswers">
-                                <i class="bi bi-patch-check"></i> Генерировать ответы и объяснения к вопросам
+                                <strong>Generate Answers and Explanations</strong>
                             </label>
-                            <small class="form-text text-muted d-block">Создаёт полноценные вопросы с правильными ответами</small>
+                            <small class="form-text text-muted d-block">Creates complete questions with correct answers</small>
                         </div>
                     </div>
 
@@ -203,7 +197,7 @@
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="skipQuestions">
                             <label class="form-check-label" for="skipQuestions">
-                                <i class="bi bi-question-circle"></i> Пропустить генерацию вопросов
+                                <strong>Skip Question Generation</strong>
                             </label>
                         </div>
                     </div>
@@ -212,7 +206,7 @@
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="skipArticles">
                             <label class="form-check-label" for="skipArticles">
-                                <i class="bi bi-link-45deg"></i> Пропустить поиск статей
+                                <strong>Skip Article Search</strong>
                             </label>
                         </div>
                     </div>
@@ -222,25 +216,25 @@
     </div>
 </div>
 
-<!-- Кнопка запуска обработки -->
+<!-- Start Processing Button -->
 <div class="row mb-4" id="startProcessingSection" style="display: none;">
     <div class="col-12 text-center">
         <button class="btn btn-primary btn-lg" id="startProcessingBtn" style="padding: 1rem 3rem;">
-            <i class="bi bi-play-circle"></i> Начать обработку
+            Start Processing
         </button>
     </div>
 </div>
 
-<!-- Прогресс обработки -->
+<!-- Processing Progress -->
 <div class="row" id="processingProgressSection" style="display: none;">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <i class="bi bi-hourglass-split"></i> Обработка...
+                Processing...
             </div>
             <div class="card-body">
                 <div class="mb-3">
-                    <h5 id="processingStage">Инициализация...</h5>
+                    <h5 id="processingStage" style="font-family: 'Courier New', monospace;">Initializing...</h5>
                     <div class="progress" style="height: 30px;">
                         <div class="progress-bar progress-bar-striped progress-bar-animated"
                              role="progressbar"
@@ -251,21 +245,21 @@
 
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <small class="text-muted">
-                            <i class="bi bi-clock"></i> Прошло времени: <span id="elapsedTime">0с</span>
+                        <small class="text-muted" style="font-family: 'Courier New', monospace;">
+                            Elapsed: <span id="elapsedTime">0s</span>
                         </small>
                     </div>
                     <button class="btn btn-danger btn-sm" id="cancelProcessingBtn">
-                        <i class="bi bi-x-circle"></i> Отменить
+                        Cancel
                     </button>
                 </div>
 
                 <div class="mt-3">
                     <details>
-                        <summary class="text-muted" style="cursor: pointer;">
-                            <i class="bi bi-terminal"></i> Показать лог
+                        <summary class="text-muted" style="cursor: pointer; font-family: 'Courier New', monospace;">
+                            Show Log
                         </summary>
-                        <pre class="mt-2 p-3" style="background: #1e1e1e; color: #d4d4d4; border-radius: 8px; max-height: 300px; overflow-y: auto;" id="processingLog"></pre>
+                        <pre class="mt-2 p-3" style="background: var(--bg-dark); color: #d4d4d4; border-radius: 2px; max-height: 300px; overflow-y: auto;" id="processingLog"></pre>
                     </details>
                 </div>
             </div>
@@ -273,23 +267,22 @@
     </div>
 </div>
 
-<!-- Результат -->
+<!-- Result -->
 <div class="row" id="processingResultSection" style="display: none;">
     <div class="col-12">
         <div class="card">
             <div class="card-header bg-success text-white">
-                <i class="bi bi-check-circle"></i> Обработка завершена!
+                <i class="bi bi-check-circle"></i> Processing Complete
             </div>
             <div class="card-body text-center py-5">
-                <i class="bi bi-check-circle text-success" style="font-size: 5rem;"></i>
-                <h3 class="mt-3">Файл успешно обработан!</h3>
-                <p class="text-muted">Все результаты сохранены и готовы к просмотру</p>
+                <h3 class="mt-3" style="text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">File Processed Successfully</h3>
+                <p class="text-muted">All results saved and ready for review</p>
                 <div class="mt-4">
                     <a href="/" class="btn btn-primary btn-lg me-2">
-                        <i class="bi bi-list"></i> К списку видео
+                        View Videos
                     </a>
-                    <button class="btn btn-outline-primary btn-lg" id="processAnotherBtn">
-                        <i class="bi bi-arrow-repeat"></i> Обработать ещё
+                    <button class="btn btn-outline-secondary btn-lg" id="processAnotherBtn">
+                        Process Another
                     </button>
                 </div>
             </div>
@@ -297,59 +290,63 @@
     </div>
 </div>
 
-<!-- Модальное окно с инструкцией по GigaChat -->
+<!-- GigaChat Setup Modal -->
 <div class="modal fade" id="gigachatInfoModal" tabindex="-1" aria-labelledby="gigachatInfoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                <h5 class="modal-title" id="gigachatInfoModalLabel">
-                    <i class="bi bi-robot"></i> Настройка GigaChat API
+            <div class="modal-header" style="background: var(--bg-dark); color: white;">
+                <h5 class="modal-title" id="gigachatInfoModalLabel" style="text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+                    GigaChat API Setup
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    <strong>GigaChat</strong> - это российская нейросеть от Сбербанка для генерации текста.
-                    Она создает более качественные суммаризации чем локальная T5 модель.
+                    <strong>GigaChat</strong> - Russian neural network by Sberbank for text generation.
+                    Creates higher quality summaries than local T5 model.
                 </div>
 
-                <h6 class="mt-4"><i class="bi bi-1-circle-fill text-primary"></i> Получите API ключ</h6>
+                <h6 class="mt-4" style="text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">
+                    <span class="badge bg-secondary">1</span> Get API Key
+                </h6>
                 <ol>
-                    <li>Перейдите на <a href="https://developers.sber.ru/studio/workspaces" target="_blank">https://developers.sber.ru/studio/workspaces</a></li>
-                    <li>Войдите через Сбер ID</li>
-                    <li>Создайте проект "GigaChat API"</li>
-                    <li>Скопируйте <strong>Client Secret</strong> (это ваш API ключ)</li>
+                    <li>Visit <a href="https://developers.sber.ru/studio/workspaces" target="_blank">https://developers.sber.ru/studio/workspaces</a></li>
+                    <li>Login via Sber ID</li>
+                    <li>Create project "GigaChat API"</li>
+                    <li>Copy <strong>Client Secret</strong> (your API key)</li>
                 </ol>
 
-                <h6 class="mt-4"><i class="bi bi-2-circle-fill text-primary"></i> Настройте .env файл</h6>
-                <p>Создайте файл <code>.env</code> в корне проекта со следующим содержимым:</p>
-                <pre class="bg-dark text-light p-3 rounded"><code>GIGACHAT_CREDENTIALS=ваш_client_secret_здесь
+                <h6 class="mt-4" style="text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">
+                    <span class="badge bg-secondary">2</span> Configure .env File
+                </h6>
+                <p>Create <code>.env</code> file in project root:</p>
+                <pre class="bg-dark text-light p-3"><code>GIGACHAT_CREDENTIALS=your_client_secret_here
 GIGACHAT_SCOPE=GIGACHAT_API_PERS</code></pre>
 
-                <h6 class="mt-4"><i class="bi bi-3-circle-fill text-primary"></i> Перезапустите веб-интерфейс</h6>
-                <pre class="bg-dark text-light p-3 rounded"><code>python web_app.py</code></pre>
+                <h6 class="mt-4" style="text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">
+                    <span class="badge bg-secondary">3</span> Restart Web Interface
+                </h6>
+                <pre class="bg-dark text-light p-3"><code>python web_app.py</code></pre>
 
                 <div class="alert alert-success mt-4">
                     <i class="bi bi-check-circle"></i>
-                    <strong>Готово!</strong> Теперь система будет использовать GigaChat для создания качественных суммаризаций.
+                    <strong>Done!</strong> System will now use GigaChat for high-quality summarization.
                 </div>
 
-                <h6 class="mt-3"><i class="bi bi-book"></i> Подробная документация:</h6>
+                <h6 class="mt-3" style="text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Documentation:</h6>
                 <ul>
-                    <li><a href="https://github.com/RuslanPogosyants/diplom/blob/main/GIGACHAT_SETUP.md" target="_blank">GIGACHAT_SETUP.md</a> - полная инструкция</li>
-                    <li><a href="https://github.com/RuslanPogosyants/diplom/blob/main/GIGACHAT_SUMMARIZATION.md" target="_blank">GIGACHAT_SUMMARIZATION.md</a> - как работает суммаризация</li>
+                    <li><a href="https://github.com/RuslanPogosyants/diplom/blob/main/GIGACHAT_SETUP.md" target="_blank">GIGACHAT_SETUP.md</a> - full setup guide</li>
+                    <li><a href="https://github.com/RuslanPogosyants/diplom/blob/main/GIGACHAT_SUMMARIZATION.md" target="_blank">GIGACHAT_SUMMARIZATION.md</a> - summarization details</li>
                 </ul>
 
                 <div class="alert alert-warning mt-3">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    <strong>Без API ключа:</strong> Система автоматически переключится на локальную T5 модель (работает офлайн, но качество ниже).
+                    <strong>Without API Key:</strong> System will fallback to local T5 model (offline, lower quality).
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 <a href="https://developers.sber.ru/studio/workspaces" target="_blank" class="btn btn-primary">
-                    <i class="bi bi-box-arrow-up-right"></i> Получить API ключ
+                    Get API Key
                 </a>
             </div>
         </div>
