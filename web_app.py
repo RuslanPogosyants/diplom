@@ -359,12 +359,14 @@ def run_processing(file_path: str, task_id: str, options: Dict):
 
         proc_logger.info("EXEC", f"Запуск команды: {' '.join(cmd)}")
 
-        # Запускаем процесс с таймаутом
+        # Запускаем процесс с таймаутом и правильной кодировкой
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding='utf-8',
+            errors='replace',  # Заменяем нераспознанные символы вместо ошибки
             bufsize=1,
             universal_newlines=True
         )
@@ -453,11 +455,23 @@ def run_processing(file_path: str, task_id: str, options: Dict):
         # Обновляем финальный статус
         with processing_tasks_lock:
             if return_code == 0:
+                # Пытаемся определить session_id из вывода
+                session_id = None
+                for line in output_lines:
+                    if 'Все результаты сохранены в:' in line or 'artifacts/' in line:
+                        # Ищем путь вида artifacts/video_TIMESTAMP
+                        import re
+                        match = re.search(r'artifacts[/\\](video_\d+)', line)
+                        if match:
+                            session_id = match.group(1)
+                            break
+
                 processing_tasks[task_id]['status'] = 'completed'
                 processing_tasks[task_id]['stage'] = 'Обработка завершена успешно!'
                 processing_tasks[task_id]['progress'] = 100
                 processing_tasks[task_id]['output'] = '\n'.join(output_lines)
-                proc_logger.info("SUCCESS", "Обработка успешно завершена")
+                processing_tasks[task_id]['session_id'] = session_id  # Сохраняем session_id
+                proc_logger.info("SUCCESS", f"Обработка успешно завершена. Session ID: {session_id}")
             else:
                 error_msg = f"Процесс завершился с кодом {return_code}\n\n"
                 if stderr_output:
@@ -600,7 +614,8 @@ def processing_status(task_id):
         'started_at': task['started_at'],
         'elapsed': time.time() - task['started_at'],
         'error': task.get('error'),
-        'output': task.get('output')
+        'output': task.get('output'),
+        'session_id': task.get('session_id')  # Добавляем session_id
     })
 
 

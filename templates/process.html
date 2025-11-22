@@ -279,6 +279,9 @@
                 <h3 class="mt-3">Файл успешно обработан!</h3>
                 <p class="text-muted">Все результаты сохранены и готовы к просмотру</p>
                 <div class="mt-4">
+                    <a href="#" class="btn btn-success btn-lg me-2" id="viewResultsBtn" style="display: none;">
+                        <i class="bi bi-eye"></i> Посмотреть результаты
+                    </a>
                     <a href="/" class="btn btn-primary btn-lg me-2">
                         <i class="bi bi-list"></i> К списку видео
                     </a>
@@ -298,6 +301,7 @@
 let selectedFilePath = null;
 let currentTaskId = null;
 let statusCheckInterval = null;
+let currentSessionId = null;
 
 // Выбор файла из списка
 document.querySelectorAll('.audio-file-item').forEach(item => {
@@ -468,11 +472,23 @@ function updateProgressUI(data) {
     if (data.output) {
         document.getElementById('processingLog').textContent = data.output;
     }
+
+    // Сохраняем session_id когда он становится доступен
+    if (data.session_id) {
+        currentSessionId = data.session_id;
+    }
 }
 
 function showCompletionUI() {
     document.getElementById('processingProgressSection').style.display = 'none';
     document.getElementById('processingResultSection').style.display = 'block';
+
+    // Показываем кнопку "Посмотреть результаты" если есть session_id
+    if (currentSessionId) {
+        const viewBtn = document.getElementById('viewResultsBtn');
+        viewBtn.href = `/session/${currentSessionId}`;
+        viewBtn.style.display = 'inline-block';
+    }
 }
 
 function showErrorUI(error) {
