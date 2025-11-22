@@ -60,20 +60,26 @@ class GigaChatProvider:
             self,
             prompt: str,
             system_prompt: Optional[str] = None,
-            temperature: Optional[float] = None
+            temperature: Optional[float] = None,
+            timeout: int = 60
     ) -> str:
         """
-        Отправка запроса к GigaChat
+        Отправка запроса к GigaChat с таймаутом
 
         Args:
             prompt: пользовательский промпт
             system_prompt: системный промпт (опционально)
             temperature: температура генерации (опционально)
+            timeout: таймаут запроса в секундах (по умолчанию 60)
 
         Returns:
             Ответ модели
+
+        Raises:
+            TimeoutError: если запрос превысил таймаут
         """
         import time
+        import threading
 
         temp = temperature if temperature is not None else self.config.temperature
 
@@ -85,6 +91,7 @@ class GigaChatProvider:
         print(f"\n[GIGACHAT] 🚀 Sending request to GigaChat API")
         print(f"[GIGACHAT] Model: {self.config.model}")
         print(f"[GIGACHAT] Temperature: {temp}")
+        print(f"[GIGACHAT] Timeout: {timeout}s")
         print(f"[GIGACHAT] Prompt size: {prompt_length} chars")
         if system_prompt:
             print(f"[GIGACHAT] System prompt size: {system_length} chars")
@@ -92,65 +99,86 @@ class GigaChatProvider:
 
         start_time = time.time()
 
-        try:
-            with self.GigaChat(
-                    credentials=self.api_key,
-                    verify_ssl_certs=self.config.verify_ssl,
-                    scope=self.config.scope,
-                    model=self.config.model
-            ) as giga:
-                # Формирование сообщений для GigaChat API
-                from gigachat.models import Chat, Messages, MessagesRole
+        # Используем контейнер для результата (чтобы можно было передать между потоками)
+        result_container = {"response": None, "error": None}
 
-                messages_list = []
+        def _make_request():
+            """Внутренняя функция для выполнения запроса в отдельном потоке"""
+            try:
+                with self.GigaChat(
+                        credentials=self.api_key,
+                        verify_ssl_certs=self.config.verify_ssl,
+                        scope=self.config.scope,
+                        model=self.config.model
+                ) as giga:
+                    # Формирование сообщений для GigaChat API
+                    from gigachat.models import Chat, Messages, MessagesRole
 
-                if system_prompt:
+                    messages_list = []
+
+                    if system_prompt:
+                        messages_list.append(
+                            Messages(
+                                role=MessagesRole.SYSTEM,
+                                content=system_prompt
+                            )
+                        )
+
                     messages_list.append(
                         Messages(
-                            role=MessagesRole.SYSTEM,
-                            content=system_prompt
+                            role=MessagesRole.USER,
+                            content=prompt
                         )
                     )
 
-                messages_list.append(
-                    Messages(
-                        role=MessagesRole.USER,
-                        content=prompt
+                    # Создаём payload
+                    payload = Chat(
+                        messages=messages_list,
+                        temperature=temp,
+                        max_tokens=self.config.max_tokens
                     )
-                )
 
-                # Создаём payload
-                payload = Chat(
-                    messages=messages_list,
-                    temperature=temp,
-                    max_tokens=self.config.max_tokens
-                )
+                    # Запрос к API
+                    print(f"[GIGACHAT] ⏳ Waiting for response...")
+                    response = giga.chat(payload)
 
-                # Запрос к API
-                print(f"[GIGACHAT] ⏳ Waiting for response...")
-                response = giga.chat(payload)
+                    elapsed = time.time() - start_time
+                    response_text = response.choices[0].message.content
+                    response_length = len(response_text)
 
-                elapsed = time.time() - start_time
-                response_text = response.choices[0].message.content
-                response_length = len(response_text)
+                    print(f"[GIGACHAT] ✅ Response received in {elapsed:.2f}s")
+                    print(f"[GIGACHAT] Response size: {response_length} chars (~{response_length // 4} tokens)")
 
-                print(f"[GIGACHAT] ✅ Response received in {elapsed:.2f}s")
-                print(f"[GIGACHAT] Response size: {response_length} chars (~{response_length // 4} tokens)")
+                    # Если есть информация об использовании токенов
+                    if hasattr(response, 'usage') and response.usage:
+                        print(f"[GIGACHAT] 💰 Token usage:")
+                        print(f"[GIGACHAT]   - Prompt tokens: {response.usage.prompt_tokens}")
+                        print(f"[GIGACHAT]   - Completion tokens: {response.usage.completion_tokens}")
+                        print(f"[GIGACHAT]   - Total tokens: {response.usage.total_tokens}")
 
-                # Если есть информация об использовании токенов
-                if hasattr(response, 'usage') and response.usage:
-                    print(f"[GIGACHAT] 💰 Token usage:")
-                    print(f"[GIGACHAT]   - Prompt tokens: {response.usage.prompt_tokens}")
-                    print(f"[GIGACHAT]   - Completion tokens: {response.usage.completion_tokens}")
-                    print(f"[GIGACHAT]   - Total tokens: {response.usage.total_tokens}")
+                    result_container["response"] = response_text
 
-                return response_text
+            except Exception as e:
+                result_container["error"] = e
 
-        except Exception as e:
+        # Запуск запроса в отдельном потоке
+        request_thread = threading.Thread(target=_make_request, daemon=True)
+        request_thread.start()
+        request_thread.join(timeout=timeout)
+
+        # Проверка результата
+        if request_thread.is_alive():
+            elapsed = time.time() - start_time
+            print(f"[GIGACHAT] ⏱️ Request timed out after {timeout}s")
+            raise TimeoutError(f"GigaChat request exceeded {timeout}s timeout")
+
+        if result_container["error"]:
             elapsed = time.time() - start_time
             print(f"[GIGACHAT] ❌ Request failed after {elapsed:.2f}s")
-            print(f"[GIGACHAT] Error: {e}")
-            raise
+            print(f"[GIGACHAT] Error: {result_container['error']}")
+            raise result_container["error"]
+
+        return result_container["response"]
 
 
 class LLMProvider:
@@ -218,8 +246,8 @@ class LLMProvider:
             else:
                 print(f"[CACHE] ❌ Cache MISS - will fetch from API")
 
-        # Вызываем API
-        response = self.provider.chat(prompt, system_prompt, temperature)
+        # Вызываем API с таймаутом
+        response = self.provider.chat(prompt, system_prompt, temperature, timeout=60)
 
         # Сохраняем в кэш
         if self.cache:

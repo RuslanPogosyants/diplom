@@ -259,7 +259,7 @@ class SegmentSummarizer:
             self,
             segments: List[Dict],
             min_text_length: int = 100,
-            show_progress: bool = True
+            show_progress: bool = False  # Отключаем tqdm по умолчанию - он блокирует subprocess
     ) -> List[Dict]:
         """
         Суммаризация списка сегментов с улучшенной обработкой ошибок
@@ -267,20 +267,26 @@ class SegmentSummarizer:
         Args:
             segments: список сегментов с полем 'text'
             min_text_length: минимальная длина текста для суммаризации
-            show_progress: показывать прогресс-бар
+            show_progress: показывать прогресс-бар (НЕ используйте в subprocess!)
 
         Returns:
             Список сегментов с добавленным полем 'summary'
         """
         logger.info(f"Начало суммаризации {len(segments)} сегментов")
+        logger.info(f"Режим: {'GigaChat LLM' if self.use_llm else 'T5 модель'}")
 
         summarized_segments = []
         iterator = tqdm(segments, desc="Суммаризация") if show_progress else segments
 
         errors_count = 0
         skipped_count = 0
+        total = len(segments)
 
-        for segment in iterator:
+        for idx, segment in enumerate(iterator, 1):
+            # Логируем прогресс каждые 5 сегментов или на важных точках
+            if idx % 5 == 0 or idx == 1 or idx == total:
+                logger.info(f"Обработка сегмента {idx}/{total} ({idx*100//total}%)")
+
             text = segment["text"]
             summary = ""
 
@@ -299,6 +305,7 @@ class SegmentSummarizer:
             else:
                 try:
                     summary = self.summarize_text(text_cleaned)
+                    logger.debug(f"Сегмент {idx}: суммаризация завершена ({len(summary)} симв.)")
                 except Exception as e:
                     logger.error(f"Ошибка суммаризации сегмента {segment.get('id', '?')}: {e}")
                     errors_count += 1
