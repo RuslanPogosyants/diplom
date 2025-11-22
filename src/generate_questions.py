@@ -283,6 +283,8 @@ class QuestionGenerator:
                     with_answers=with_answers
                 )
 
+                print(f"[DEBUG] Received {len(llm_questions)} questions from LLM")
+
                 # Форматируем вопросы с таймкодами
                 all_questions = []
                 for i, q in enumerate(llm_questions):
@@ -291,12 +293,16 @@ class QuestionGenerator:
 
                     question_dict = {
                         "id": i,
-                        "question": q["question"],
-                        "difficulty": q["difficulty"],
+                        "question": q.get("question", ""),
+                        "difficulty": q.get("difficulty", "medium"),
                         "segment_id": relevant_segment["id"],
                         "timestamp": relevant_segment["start"],
                         "type": "llm_generated"
                     }
+
+                    # Проверяем, что вопрос не пустой
+                    if not question_dict["question"]:
+                        print(f"[WARN] Empty question at index {i}! Full object: {q}")
 
                     # Phase 3: Добавляем ответ и объяснение (если есть)
                     if with_answers and "answer" in q:
@@ -305,6 +311,14 @@ class QuestionGenerator:
                         question_dict["explanation"] = q["explanation"]
 
                     all_questions.append(question_dict)
+
+                # Дополнительная проверка
+                empty_questions = sum(1 for q in all_questions if not q.get("question"))
+                if empty_questions > 0:
+                    print(f"[ERROR] Found {empty_questions} empty questions out of {len(all_questions)}")
+                    print(f"[DEBUG] First question: '{all_questions[0].get('question', 'EMPTY')}'")
+                    if len(all_questions) > 1:
+                        print(f"[DEBUG] Second question: '{all_questions[1].get('question', 'EMPTY')}'")
 
             except Exception as e:
                 print(f"[WARN] LLM question generation failed: {e}, using fallback")

@@ -474,6 +474,12 @@ class LLMProvider:
             temperature=0.5  # Чуть выше для разнообразия
         )
 
+        # Логируем сырой ответ от GigaChat
+        print(f"\n[DEBUG] Raw GigaChat response:")
+        print("=" * 60)
+        print(response[:500] + "..." if len(response) > 500 else response)
+        print("=" * 60)
+
         # Парсинг вопросов
         questions = []
         current_question = None
@@ -489,12 +495,14 @@ class LLMProvider:
             if any(tag in line.upper() for tag in ["[EASY]", "[MEDIUM]", "[HARD]"]):
                 # Сохраняем предыдущий вопрос, если есть
                 if current_question:
-                    questions.append({
+                    question_obj = {
                         "question": current_question["text"],
                         "difficulty": current_question["difficulty"],
                         "answer": current_answer,
                         "explanation": current_explanation
-                    })
+                    }
+                    print(f"[DEBUG] Parsed question: {question_obj['question'][:80]}...")
+                    questions.append(question_obj)
 
                 # Начинаем новый вопрос
                 difficulty = "medium"
@@ -503,29 +511,44 @@ class LLMProvider:
                 elif "[HARD]" in line.upper():
                     difficulty = "hard"
 
-                question_text = line.split(']', 1)[1].strip()
+                question_text = line.split(']', 1)[1].strip() if ']' in line else ""
                 question_text = question_text.lstrip('0123456789.-) ').strip()
+
+                print(f"[DEBUG] Found question tag: {line[:60]}")
+                print(f"[DEBUG] Extracted question: {question_text[:80]}")
 
                 current_question = {"text": question_text, "difficulty": difficulty}
                 current_answer = None
                 current_explanation = None
 
             elif line.upper().startswith("ОТВЕТ:"):
-                current_answer = line.split(':', 1)[1].strip()
+                current_answer = line.split(':', 1)[1].strip() if ':' in line else ""
+                print(f"[DEBUG] Found answer: {current_answer[:60]}")
 
             elif line.upper().startswith("ОБЪЯСНЕНИЕ:"):
-                current_explanation = line.split(':', 1)[1].strip()
+                current_explanation = line.split(':', 1)[1].strip() if ':' in line else ""
+                print(f"[DEBUG] Found explanation: {current_explanation[:60]}")
 
         # Добавляем последний вопрос
         if current_question:
-            questions.append({
+            last_question = {
                 "question": current_question["text"],
                 "difficulty": current_question["difficulty"],
                 "answer": current_answer,
                 "explanation": current_explanation
-            })
+            }
+            print(f"[DEBUG] Parsed last question: {last_question['question'][:80]}...")
+            questions.append(last_question)
 
         print(f"\n[LLM] ✅ Successfully parsed {len(questions)} questions")
+
+        # Логируем все вопросы для отладки
+        for i, q in enumerate(questions[:3]):  # Первые 3 для примера
+            print(f"[DEBUG] Question {i+1}:")
+            print(f"  Text: '{q.get('question', 'EMPTY')}'")
+            print(f"  Difficulty: {q.get('difficulty', 'UNKNOWN')}")
+            print(f"  Has answer: {bool(q.get('answer'))}")
+            print(f"  Has explanation: {bool(q.get('explanation'))}")
         if with_answers:
             questions_with_answers = sum(1 for q in questions if q.get('answer'))
             print(f"[LLM] Questions with answers: {questions_with_answers}/{len(questions)}")
