@@ -6,8 +6,8 @@
 <!-- Хлебные крошки -->
 <nav aria-label="breadcrumb" class="mb-4">
     <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="/" style="color: white; text-decoration: none;"><i class="bi bi-house"></i> Главная</a></li>
-        <li class="breadcrumb-item active" style="color: white;">Обработка файлов</li>
+        <li class="breadcrumb-item"><a href="/"><i class="bi bi-house"></i> Главная</a></li>
+        <li class="breadcrumb-item active">Обработка файлов</li>
     </ol>
 </nav>
 
@@ -259,7 +259,7 @@
                         <summary class="text-muted" style="cursor: pointer;">
                             <i class="bi bi-terminal"></i> Показать лог
                         </summary>
-                        <pre class="mt-2 p-3" style="background: #1e1e1e; color: #d4d4d4; border-radius: 8px; max-height: 300px; overflow-y: auto;" id="processingLog"></pre>
+                        <pre class="mt-2 p-3" style="background: var(--bg-medium); color: var(--text-primary); border-radius: 8px; border: 1px solid var(--border-color); max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace;" id="processingLog"></pre>
                     </details>
                 </div>
             </div>
@@ -362,6 +362,21 @@ fileInput.addEventListener('change', (e) => {
 });
 
 function uploadFile(file) {
+    // Валидация размера (500MB = 524288000 bytes)
+    const maxSize = 500 * 1024 * 1024;
+    if (file.size > maxSize) {
+        alert(`Файл слишком большой! Максимальный размер: 500MB\nРазмер вашего файла: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+        return;
+    }
+
+    // Валидация формата
+    const allowedFormats = ['.wav', '.mp3', '.mp4', '.m4a', '.avi', '.mkv'];
+    const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowedFormats.includes(fileExt)) {
+        alert(`Неподдерживаемый формат файла: ${fileExt}\nПоддерживаемые форматы: ${allowedFormats.join(', ')}`);
+        return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 
@@ -401,6 +416,10 @@ document.getElementById('startProcessingBtn').addEventListener('click', function
         alert('Выберите файл для обработки');
         return;
     }
+
+    // Деактивируем кнопку чтобы избежать двойного клика
+    this.disabled = true;
+    this.innerHTML = '<i class="bi bi-hourglass-split"></i> Запуск...';
 
     const options = {
         file_path: selectedFilePath,
