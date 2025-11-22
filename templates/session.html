@@ -277,7 +277,7 @@
                         <summary class="text-muted" style="cursor: pointer;">
                             <i class="bi bi-eye"></i> Показать полный текст
                         </summary>
-                        <div class="mt-2 p-3" style="background: var(--bg-dark); border-radius: 2px; border: 1px solid var(--border-color);">
+                        <div class="mt-2 p-3" style="background: var(--bg-medium); border-radius: 4px; border: 1px solid var(--border-color);">
                             {{ seg.text }}
                         </div>
                     </details>
@@ -343,9 +343,9 @@
                 <div class="row">
                     {% for term in data.terms.glossary.key_terms %}
                     <div class="col-md-6 mb-3">
-                        <div class="d-flex justify-content-between align-items-center p-3" style="background: var(--bg-dark); border-radius: 2px; border: 1px solid var(--border-color); border-left: 2px solid var(--accent-color);">
+                        <div class="d-flex justify-content-between align-items-center p-3" style="background: var(--bg-dark); border-radius: 4px; border: 1px solid var(--border-color); border-left: 3px solid var(--accent-color);">
                             <strong style="color: var(--text-primary);">{{ term.term }}</strong>
-                            <span class="badge bg-secondary">{{ term.frequency }}</span>
+                            <span class="badge bg-primary">{{ term.frequency }}</span>
                         </div>
                     </div>
                     {% endfor %}
@@ -452,7 +452,7 @@
                     </div>
 
                     <!-- Текст вопроса -->
-                    <div class="question-text mt-3 mb-3" style="font-size: 1.05rem; font-weight: 400; padding: 1rem; background: var(--bg-dark); border-radius: 2px; border-left: 2px solid var(--accent-color); color: var(--text-primary);">
+                    <div class="question-text mt-3 mb-3" style="font-size: 1.05rem; font-weight: 500; padding: 1rem; background: var(--bg-medium); border-radius: 4px; border-left: 3px solid var(--accent-color); color: var(--text-primary);">
                         {{ question.question }}
                     </div>
 
