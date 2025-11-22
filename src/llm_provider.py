@@ -99,27 +99,36 @@ class GigaChatProvider:
                     scope=self.config.scope,
                     model=self.config.model
             ) as giga:
-                # Формирование сообщений
-                messages = []
+                # Формирование сообщений для GigaChat API
+                from gigachat.models import Chat, Messages, MessagesRole
+
+                messages_list = []
 
                 if system_prompt:
-                    messages.append({
-                        "role": "system",
-                        "content": system_prompt
-                    })
+                    messages_list.append(
+                        Messages(
+                            role=MessagesRole.SYSTEM,
+                            content=system_prompt
+                        )
+                    )
 
-                messages.append({
-                    "role": "user",
-                    "content": prompt
-                })
+                messages_list.append(
+                    Messages(
+                        role=MessagesRole.USER,
+                        content=prompt
+                    )
+                )
 
-                # Запрос к API
-                print(f"[GIGACHAT] ⏳ Waiting for response...")
-                response = giga.chat(
-                    messages=messages,
+                # Создаём payload
+                payload = Chat(
+                    messages=messages_list,
                     temperature=temp,
                     max_tokens=self.config.max_tokens
                 )
+
+                # Запрос к API
+                print(f"[GIGACHAT] ⏳ Waiting for response...")
+                response = giga.chat(payload)
 
                 elapsed = time.time() - start_time
                 response_text = response.choices[0].message.content
