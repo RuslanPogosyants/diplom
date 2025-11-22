@@ -6,7 +6,7 @@
 <!-- Хлебные крошки -->
 <nav aria-label="breadcrumb" class="mb-4">
     <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="/"><i class="bi bi-house"></i> Главная</a></li>
+        <li class="breadcrumb-item"><a href="/">Главная</a></li>
         <li class="breadcrumb-item active">{{ data.id }}</li>
     </ol>
 </nav>
@@ -18,27 +18,20 @@
             <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <i class="bi bi-camera-video"></i> {{ data.checkpoint.video_source|truncate(80) }}
+                        {{ data.checkpoint.video_source|truncate(80) }}
                     </div>
                     <div>
                         {% if data.checkpoint.stage == 'export_complete' %}
-                            <span class="badge bg-success">
-                                <i class="bi bi-check-circle"></i> Обработка завершена
-                            </span>
+                            <span class="badge bg-success">Завершено</span>
                         {% else %}
-                            <span class="badge bg-warning">
-                                <i class="bi bi-hourglass-split"></i> {{ data.checkpoint.stage }}
-                            </span>
+                            <span class="badge bg-warning">{{ data.checkpoint.stage }}</span>
                         {% endif %}
                     </div>
                 </div>
             </div>
             <div class="card-body">
                 <small class="text-muted">
-                    <i class="bi bi-calendar"></i> {{ data.checkpoint.timestamp|format_datetime }}
-                    <span class="ms-3">
-                        <i class="bi bi-folder"></i> {{ data.id }}
-                    </span>
+                    {{ data.checkpoint.timestamp|format_datetime }} • {{ data.id }}
                 </small>
             </div>
         </div>
@@ -77,11 +70,6 @@
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="overview-tab" data-bs-toggle="pill" data-bs-target="#overview" type="button">
             Обзор
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="terms-tab" data-bs-toggle="pill" data-bs-target="#terms" type="button">
-            Термины
         </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -144,10 +132,7 @@
                 Общий обзор
             </div>
             <div class="card-body">
-                <div class="alert alert-info" role="alert">
-                    <h5>Суммаризация всего видео:</h5>
-                    <p class="mb-0 mt-3">{{ data.final_summary.overview }}</p>
-                </div>
+                <p style="font-size: 1.05rem; line-height: 1.7;">{{ data.final_summary.overview }}</p>
             </div>
         </div>
 
@@ -282,27 +267,18 @@
                     </div>
 
                     <div class="alert alert-success mt-3">
-                        <strong><i class="bi bi-lightning-charge"></i> Суммаризация:</strong>
+                        <strong>Суммаризация:</strong>
                         <p class="mb-0 mt-2">{{ seg.summary }}</p>
                     </div>
 
                     <details class="mt-3">
                         <summary class="text-muted" style="cursor: pointer;">
-                            <i class="bi bi-eye"></i> Показать полный текст
+                            Показать полный текст
                         </summary>
                         <div class="mt-2 p-3" style="background: var(--bg-medium); border-radius: 4px; border: 1px solid var(--border-color);">
                             {{ seg.text }}
                         </div>
                     </details>
-
-                    <div class="mt-2">
-                        <small class="text-muted">
-                            <i class="bi bi-rulers"></i> Compression: {{ "%.1f"|format(seg.compression_ratio) }}x
-                            <span class="ms-2">
-                                <i class="bi bi-chat-left-text"></i> {{ seg.num_sentences }} предложений
-                            </span>
-                        </small>
-                    </div>
                 </div>
                 {% endfor %}
             </div>
@@ -338,84 +314,6 @@
         {% else %}
         <div class="alert alert-warning">
             Суммаризация недоступна
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Термины -->
-    <div class="tab-pane fade" id="terms" role="tabpanel">
-        {% if data.terms %}
-        <div class="card mb-4">
-            <div class="card-header">
-                Ключевые термины
-                <span class="badge bg-light text-dark ms-2">
-                    {{ data.terms.glossary.key_terms|length }} терминов
-                </span>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    {% for term in data.terms.glossary.key_terms %}
-                    <div class="col-md-6 mb-3">
-                        <div class="d-flex justify-content-between align-items-center p-3" style="background: var(--bg-dark); border-radius: 4px; border: 1px solid var(--border-color); border-left: 3px solid var(--accent-color);">
-                            <strong style="color: var(--text-primary);">{{ term.term }}</strong>
-                            <span class="badge bg-primary">{{ term.frequency }}</span>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Именованные сущности -->
-        <div class="row">
-            {% if data.terms.glossary.named_entities.persons %}
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                Персоны
-                    </div>
-                    <div class="card-body">
-                        {% for person in data.terms.glossary.named_entities.persons %}
-                        <span class="badge bg-secondary m-1">{{ person }}</span>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            {% if data.terms.glossary.named_entities.organizations %}
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                Организации
-                    </div>
-                    <div class="card-body">
-                        {% for org in data.terms.glossary.named_entities.organizations %}
-                        <span class="badge bg-secondary m-1">{{ org }}</span>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            {% if data.terms.glossary.named_entities.locations %}
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header">
-                Локации
-                    </div>
-                    <div class="card-body">
-                        {% for loc in data.terms.glossary.named_entities.locations %}
-                        <span class="badge bg-secondary m-1">{{ loc }}</span>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-        {% else %}
-        <div class="alert alert-warning">
-            Термины недоступны
         </div>
         {% endif %}
     </div>
@@ -470,21 +368,21 @@
 
                     <!-- Кнопка показать ответ -->
                     <button class="btn btn-primary mb-3 show-answer-btn" onclick="toggleAnswer(this)">
-                        <i class="bi bi-eye"></i> Показать ответ
+                        Показать ответ
                     </button>
 
                     <!-- Ответ и объяснение (скрыто по умолчанию) -->
                     <div class="answer-section" style="display: none;">
                         {% if question.answer %}
                         <div class="alert alert-success mt-3">
-                            <strong><i class="bi bi-check-circle"></i> Правильный ответ:</strong>
+                            <strong>Правильный ответ:</strong>
                             <p class="mb-0 mt-2">{{ question.answer }}</p>
                         </div>
                         {% endif %}
 
                         {% if question.explanation %}
                         <div class="alert alert-info mt-2">
-                            <strong><i class="bi bi-lightbulb"></i> Объяснение:</strong>
+                            <strong>Объяснение:</strong>
                             <p class="mb-0 mt-2">{{ question.explanation }}</p>
                         </div>
                         {% endif %}
@@ -492,7 +390,7 @@
 
                     {% if question.timestamp is defined %}
                     <small class="text-muted">
-                        <i class="bi bi-clock"></i> Таймкод: <span class="timestamp">{{ question.timestamp|format_time }}</span>
+                        Таймкод: <span class="timestamp">{{ question.timestamp|format_time }}</span>
                     </small>
                     {% endif %}
                 </div>
@@ -521,16 +419,13 @@
                 <div class="article-card">
                     <h5>
                         <a href="{{ article.url }}" target="_blank" style="text-decoration: none;">
-                            {{ article.title }}
-                            <i class="bi bi-box-arrow-up-right ms-2" style="font-size: 0.8rem;"></i>
+                            {{ article.title }} ↗
                         </a>
                     </h5>
                     <p class="text-muted mb-2">
-                        <i class="bi bi-building"></i> {{ article.source }}
+                        {{ article.source }}
                         {% if article.topic %}
-                        <span class="ms-2">
-                            <i class="bi bi-tag"></i> {{ article.topic }}
-                        </span>
+                        <span class="ms-2">• {{ article.topic }}</span>
                         {% endif %}
                     </p>
                     {% if article.snippet %}
@@ -576,16 +471,15 @@ document.querySelectorAll('[data-filter]').forEach(btn => {
 function toggleAnswer(button) {
     const questionCard = button.closest('.question-card');
     const answerSection = questionCard.querySelector('.answer-section');
-    const icon = button.querySelector('i');
 
     if (answerSection.style.display === 'none') {
         answerSection.style.display = 'block';
-        button.innerHTML = '<i class="bi bi-eye-slash"></i> Скрыть ответ';
+        button.textContent = 'Скрыть ответ';
         button.classList.remove('btn-primary');
         button.classList.add('btn-secondary');
     } else {
         answerSection.style.display = 'none';
-        button.innerHTML = '<i class="bi bi-eye"></i> Показать ответ';
+        button.textContent = 'Показать ответ';
         button.classList.remove('btn-secondary');
         button.classList.add('btn-primary');
     }
