@@ -267,6 +267,31 @@
     </div>
 </div>
 
+<!-- Модальное окно подтверждения отмены -->
+<div class="modal fade" id="cancelConfirmModal" tabindex="-1" aria-labelledby="cancelConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelConfirmModalLabel">
+                    <i class="bi bi-exclamation-triangle text-warning"></i> Подтверждение отмены
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Вы уверены, что хотите отменить обработку? Весь прогресс будет потерян.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x"></i> Нет, продолжить
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmCancelBtn">
+                    <i class="bi bi-check"></i> Да, отменить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Результат -->
 <div class="row" id="processingResultSection" style="display: none;">
     <div class="col-12">
@@ -365,7 +390,11 @@ function uploadFile(file) {
     // Валидация размера (500MB = 524288000 bytes)
     const maxSize = 500 * 1024 * 1024;
     if (file.size > maxSize) {
-        alert(`Файл слишком большой! Максимальный размер: 500MB\nРазмер вашего файла: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+        showToast(
+            `Размер файла: ${(file.size / 1024 / 1024).toFixed(2)}MB. Максимальный размер: 500MB`,
+            'Файл слишком большой',
+            'error'
+        );
         return;
     }
 
@@ -373,7 +402,11 @@ function uploadFile(file) {
     const allowedFormats = ['.wav', '.mp3', '.mp4', '.m4a', '.avi', '.mkv'];
     const fileExt = '.' + file.name.split('.').pop().toLowerCase();
     if (!allowedFormats.includes(fileExt)) {
-        alert(`Неподдерживаемый формат файла: ${fileExt}\nПоддерживаемые форматы: ${allowedFormats.join(', ')}`);
+        showToast(
+            `Поддерживаемые форматы: ${allowedFormats.join(', ')}`,
+            `Неподдерживаемый формат: ${fileExt}`,
+            'error'
+        );
         return;
     }
 
@@ -401,19 +434,31 @@ function uploadFile(file) {
                 document.getElementById('startProcessingSection').style.display = 'block';
             }, 500);
         } else {
-            alert('Ошибка загрузки: ' + data.error);
+            showToast(
+                data.error || 'Неизвестная ошибка',
+                'Ошибка загрузки',
+                'error'
+            );
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Ошибка загрузки файла');
+        showToast(
+            'Не удалось загрузить файл на сервер',
+            'Ошибка загрузки',
+            'error'
+        );
     });
 }
 
 // Запуск обработки
 document.getElementById('startProcessingBtn').addEventListener('click', function() {
     if (!selectedFilePath) {
-        alert('Выберите файл для обработки');
+        showToast(
+            'Пожалуйста, выберите файл из списка или загрузите новый файл',
+            'Файл не выбран',
+            'warning'
+        );
         return;
     }
 
@@ -451,12 +496,30 @@ document.getElementById('startProcessingBtn').addEventListener('click', function
             currentTaskId = data.task_id;
             startStatusPolling();
         } else {
-            alert('Ошибка запуска: ' + data.error);
+            showToast(
+                data.error || 'Неизвестная ошибка',
+                'Ошибка запуска',
+                'error'
+            );
+            // Восстанавливаем кнопку
+            document.getElementById('startProcessingBtn').disabled = false;
+            document.getElementById('startProcessingBtn').innerHTML = '<i class="bi bi-play-circle"></i> Начать обработку';
+            document.getElementById('startProcessingSection').style.display = 'block';
+            document.getElementById('processingProgressSection').style.display = 'none';
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Ошибка запуска обработки');
+        showToast(
+            'Не удалось запустить обработку. Проверьте соединение с сервером',
+            'Ошибка запуска',
+            'error'
+        );
+        // Восстанавливаем кнопку
+        document.getElementById('startProcessingBtn').disabled = false;
+        document.getElementById('startProcessingBtn').innerHTML = '<i class="bi bi-play-circle"></i> Начать обработку';
+        document.getElementById('startProcessingSection').style.display = 'block';
+        document.getElementById('processingProgressSection').style.display = 'none';
     });
 });
 
@@ -511,21 +574,47 @@ function showCompletionUI() {
 }
 
 function showErrorUI(error) {
-    alert('Ошибка обработки: ' + error);
-    location.reload();
+    showToast(
+        error || 'Неизвестная ошибка во время обработки',
+        'Ошибка обработки',
+        'error'
+    );
+    setTimeout(() => {
+        location.reload();
+    }, 3000);
 }
 
 // Отмена обработки
+const cancelConfirmModal = new bootstrap.Modal(document.getElementById('cancelConfirmModal'));
+
 document.getElementById('cancelProcessingBtn').addEventListener('click', function() {
-    if (confirm('Вы уверены, что хотите отменить обработку?')) {
-        fetch(`/api/process/cancel/${currentTaskId}`, {
-            method: 'POST'
-        })
-        .then(() => {
-            clearInterval(statusCheckInterval);
+    cancelConfirmModal.show();
+});
+
+document.getElementById('confirmCancelBtn').addEventListener('click', function() {
+    fetch(`/api/process/cancel/${currentTaskId}`, {
+        method: 'POST'
+    })
+    .then(() => {
+        clearInterval(statusCheckInterval);
+        cancelConfirmModal.hide();
+        showToast(
+            'Обработка отменена',
+            'Отмена',
+            'info'
+        );
+        setTimeout(() => {
             location.reload();
-        });
-    }
+        }, 1500);
+    })
+    .catch(error => {
+        console.error('Cancel error:', error);
+        showToast(
+            'Не удалось отменить обработку',
+            'Ошибка',
+            'error'
+        );
+    });
 });
 
 // Обработать ещё один файл
