@@ -1,5 +1,5 @@
 """
-Суммаризация сегментов транскрипции
+Суммаризация сегментов транскрипции с улучшенным алгоритмом и логированием
 """
 import json
 import torch
@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import List, Dict
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 from tqdm import tqdm
+
+# Импорт системы логирования
+from src.logger import get_logger
+
+logger = get_logger("ai_models")
 
 
 class SegmentSummarizer:
@@ -28,7 +33,7 @@ class SegmentSummarizer:
             max_output_length: максимальная длина суммаризации
             cache_dir: директория для кэширования моделей
         """
-        print(f"[INFO] Loading summarization model: {model_name}")
+        logger.info(f"Загрузка модели суммаризации: {model_name}")
 
         # Определение устройства
         if device == "auto":
@@ -36,28 +41,31 @@ class SegmentSummarizer:
         else:
             self.device = device
 
-        print(f"[INFO] Using device: {self.device}")
+        logger.info(f"Использование устройства: {self.device}")
 
         # Загрузка модели и токенизатора
         try:
+            logger.info("Загрузка токенизатора...")
             self.tokenizer = T5Tokenizer.from_pretrained(
                 model_name,
                 cache_dir=cache_dir
             )
+
+            logger.info("Загрузка модели T5...")
             self.model = T5ForConditionalGeneration.from_pretrained(
                 model_name,
                 cache_dir=cache_dir
             ).to(self.device)
 
-            print(f"[✓] Model loaded successfully")
+            logger.info("Модель успешно загружена")
 
             # Проверка VRAM
             if self.device == "cuda":
                 memory_allocated = torch.cuda.memory_allocated(0) / 1024 ** 3
-                print(f"[INFO] VRAM allocated: {memory_allocated:.2f} GB")
+                logger.info(f"VRAM выделено: {memory_allocated:.2f} ГБ")
 
         except Exception as e:
-            print(f"[✗] Failed to load model: {e}")
+            logger.error(f"Не удалось загрузить модель: {e}", exc_info=True)
             raise
 
         self.max_input_length = max_input_length
@@ -65,6 +73,7 @@ class SegmentSummarizer:
 
         # Перевод модели в режим eval
         self.model.eval()
+        logger.info("Модель переведена в режим eval")
 
     @staticmethod
     def preprocess_text(text: str) -> str:
@@ -166,7 +175,7 @@ class SegmentSummarizer:
             show_progress: bool = True
     ) -> List[Dict]:
         """
-        Суммаризация списка сегментов
+        Суммаризация списка сегментов с улучшенной обработкой ошибок
 
         Args:
             segments: список сегментов с полем 'text'
@@ -176,32 +185,36 @@ class SegmentSummarizer:
         Returns:
             Список сегментов с добавленным полем 'summary'
         """
-        print(f"[INFO] Summarizing {len(segments)} segments")
+        logger.info(f"Начало суммаризации {len(segments)} сегментов")
 
         summarized_segments = []
-        iterator = tqdm(segments, desc="Summarizing") if show_progress else segments
+        iterator = tqdm(segments, desc="Суммаризация") if show_progress else segments
+
+        errors_count = 0
+        skipped_count = 0
 
         for segment in iterator:
             text = segment["text"]
-            summary = ""  # ВАЖНО: инициализация по умолчанию
+            summary = ""
 
             # Предобработка текста (очистка от мусора)
             try:
                 text_cleaned = self.preprocess_text(text)
             except Exception as e:
-                print(f"[WARN] Error preprocessing segment {segment.get('id', '?')}: {e}")
+                logger.warning(f"Ошибка предобработки сегмента {segment.get('id', '?')}: {e}")
                 text_cleaned = text  # Fallback на оригинал
 
             # Пропускаем слишком короткие тексты
             if len(text_cleaned) < min_text_length:
                 summary = text_cleaned if text_cleaned else text
-                if show_progress:
-                    print(f"[WARN] Segment {segment.get('id', '?')} too short ({len(text_cleaned)} chars), skipping summarization")
+                skipped_count += 1
+                logger.debug(f"Сегмент {segment.get('id', '?')} пропущен: слишком короткий ({len(text_cleaned)} симв.)")
             else:
                 try:
                     summary = self.summarize_text(text_cleaned)
                 except Exception as e:
-                    print(f"[✗] Error summarizing segment {segment.get('id', '?')}: {e}")
+                    logger.error(f"Ошибка суммаризации сегмента {segment.get('id', '?')}: {e}")
+                    errors_count += 1
                     # Fallback: первые 200 символов или весь текст
                     summary = text_cleaned[:200] + "..." if len(text_cleaned) > 200 else text_cleaned
 
@@ -214,16 +227,19 @@ class SegmentSummarizer:
 
             summarized_segments.append(segment_with_summary)
 
-        print(f"[✓] Summarization complete!")
+        logger.info("Суммаризация завершена!")
 
         # Статистика
         total_original = sum(s["original_length"] for s in summarized_segments)
         total_summary = sum(s["summary_length"] for s in summarized_segments)
         avg_compression = total_original / total_summary if total_summary > 0 else 0
 
-        print(f"[INFO] Original length: {total_original} chars")
-        print(f"[INFO] Summary length: {total_summary} chars")
-        print(f"[INFO] Compression ratio: {avg_compression:.2f}x")
+        logger.info(f"Исходный объем: {total_original} симв.")
+        logger.info(f"Суммаризированный объем: {total_summary} симв.")
+        logger.info(f"Коэффициент сжатия: {avg_compression:.2f}x")
+        logger.info(f"Пропущено коротких сегментов: {skipped_count}")
+        if errors_count > 0:
+            logger.warning(f"Ошибок при суммаризации: {errors_count}")
 
         return summarized_segments
 
@@ -242,7 +258,7 @@ class SegmentSummarizer:
         Returns:
             Мета-суммаризация
         """
-        print(f"[INFO] Creating meta-summary from {len(segment_summaries)} summaries")
+        logger.info(f"Создание мета-суммаризации из {len(segment_summaries)} суммаризаций")
 
         # Объединяем все суммаризации
         combined = " ".join(segment_summaries)
@@ -252,6 +268,7 @@ class SegmentSummarizer:
 
         if len(combined) <= max_chunk:
             # Суммаризируем напрямую
+            logger.debug("Прямая суммаризация (текст помещается в один chunk)")
             meta_summary = self.summarize_text(combined)
         else:
             # Разбиваем на части и суммаризируем каждую
@@ -272,12 +289,12 @@ class SegmentSummarizer:
             if current_chunk:
                 chunks.append(" ".join(current_chunk))
 
-            print(f"[INFO] Split into {len(chunks)} chunks for meta-summarization")
+            logger.info(f"Разбито на {len(chunks)} частей для мета-суммаризации")
 
             # Суммаризируем каждую часть
             chunk_summaries = []
             for i, chunk in enumerate(chunks):
-                print(f"[INFO] Summarizing chunk {i + 1}/{len(chunks)}")
+                logger.debug(f"Суммаризация части {i + 1}/{len(chunks)}")
                 summary = self.summarize_text(chunk)
                 chunk_summaries.append(summary)
 
@@ -285,7 +302,7 @@ class SegmentSummarizer:
             combined_summaries = " ".join(chunk_summaries)
             meta_summary = self.summarize_text(combined_summaries)
 
-        print(f"[✓] Meta-summary created ({len(meta_summary)} chars)")
+        logger.info(f"Мета-суммаризация создана ({len(meta_summary)} симв.)")
         return meta_summary
 
     def extract_key_points(
@@ -294,7 +311,12 @@ class SegmentSummarizer:
             num_points: int = 5
     ) -> List[str]:
         """
-        Извлечение ключевых тезисов из сегментов
+        Извлечение ключевых тезисов из сегментов с улучшенным алгоритмом
+
+        Использует комбинацию факторов:
+        - Длина оригинального сегмента (важность)
+        - Коэффициент сжатия (информационная плотность)
+        - Длина суммаризации (содержательность)
 
         Args:
             segments: список сегментов с суммаризациями
@@ -303,21 +325,53 @@ class SegmentSummarizer:
         Returns:
             Список ключевых тезисов
         """
-        print(f"[INFO] Extracting {num_points} key points")
+        logger.info(f"Извлечение {num_points} ключевых тезисов")
 
-        # Простая эвристика: берём самые длинные сегменты
+        # Вычисляем score для каждого сегмента
+        scored_segments = []
+        for seg in segments:
+            original_len = seg.get("original_length", 0)
+            summary_len = seg.get("summary_length", 1)
+            compression_ratio = seg.get("compression_ratio", 1.0)
+
+            # Score = взвешенная комбинация факторов
+            # Длинные сегменты важнее, высокий коэффициент сжатия = больше информации
+            # Длинная суммаризация = более содержательна
+            score = (
+                original_len * 0.4 +           # Важность сегмента
+                compression_ratio * 100 * 0.3 +  # Информационная плотность
+                summary_len * 0.3               # Содержательность
+            )
+
+            scored_segments.append({
+                'segment': seg,
+                'score': score
+            })
+
+        # Сортируем по score
         sorted_segments = sorted(
-            segments,
-            key=lambda s: s.get("original_length", 0),
+            scored_segments,
+            key=lambda x: x['score'],
             reverse=True
         )
 
+        top_scores = [f"{s['score']:.1f}" for s in sorted_segments[:3]]
+        logger.debug(f"Топ-3 сегмента по score: {top_scores}")
+
         key_points = []
-        for seg in sorted_segments[:num_points]:
-            # Берём первое предложение суммаризации
+        for item in sorted_segments[:num_points]:
+            seg = item['segment']
             summary = seg.get("summary", "")
-            first_sentence = summary.split(".")[0] + "."
-            key_points.append(first_sentence)
+
+            # Берём первое предложение суммаризации
+            sentences = summary.split(".")
+            first_sentence = sentences[0].strip() + "." if sentences else summary
+
+            # Убираем слишком короткие тезисы
+            if len(first_sentence) > 20:
+                key_points.append(first_sentence)
+
+        logger.info(f"Извлечено {len(key_points)} ключевых тезисов")
 
         return key_points
 
@@ -327,7 +381,7 @@ class SegmentSummarizer:
             output_dir: Path = None
     ) -> Dict:
         """
-        Полный процесс суммаризации из файла сегментов
+        Полный процесс суммаризации из файла сегментов с логированием
 
         Args:
             segments_path: путь к segments_semantic.json
@@ -336,15 +390,21 @@ class SegmentSummarizer:
         Returns:
             Dict с результатами суммаризации
         """
-        print(f"\n{'=' * 60}")
-        print("[INFO] Starting summarization process")
-        print(f"{'=' * 60}\n")
+        logger.info("=" * 60)
+        logger.info("НАЧАЛО ПРОЦЕССА СУММАРИЗАЦИИ")
+        logger.info("=" * 60)
 
         # Загрузка сегментов
-        with open(segments_path, 'r', encoding='utf-8') as f:
-            segments_data = json.load(f)
+        logger.info(f"Загрузка сегментов из: {segments_path}")
+        try:
+            with open(segments_path, 'r', encoding='utf-8') as f:
+                segments_data = json.load(f)
 
-        segments = segments_data["segments"]
+            segments = segments_data["segments"]
+            logger.info(f"Загружено сегментов: {len(segments)}")
+        except Exception as e:
+            logger.error(f"Ошибка загрузки файла сегментов: {e}", exc_info=True)
+            raise
 
         # Суммаризация сегментов
         summarized_segments = self.summarize_segments(segments)
@@ -370,15 +430,23 @@ class SegmentSummarizer:
 
         self.save_summaries(result, output_dir)
 
+        logger.info("=" * 60)
+        logger.info("СУММАРИЗАЦИЯ ЗАВЕРШЕНА")
+        logger.info("=" * 60)
+
         return result
 
     def save_summaries(self, summaries: Dict, output_dir: Path):
-        """Сохранение суммаризаций"""
+        """Сохранение суммаризаций с логированием"""
         # JSON формат
         json_path = output_dir / "summaries_per_segment.json"
-        with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(summaries, f, ensure_ascii=False, indent=2)
-        print(f"[✓] Saved: {json_path}")
+        try:
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(summaries, f, ensure_ascii=False, indent=2)
+            logger.info(f"Сохранено: {json_path}")
+        except Exception as e:
+            logger.error(f"Ошибка сохранения JSON: {e}", exc_info=True)
+            raise
 
         # Читаемый формат
         txt_path = output_dir / "summaries_readable.txt"

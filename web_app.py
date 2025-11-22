@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Веб-интерфейс для Video Intelligence System
+Система интеллектуального анализа образовательных видео
 """
 from flask import Flask, render_template, jsonify, send_from_directory, request, redirect, url_for
 from pathlib import Path
@@ -12,7 +13,14 @@ import subprocess
 import threading
 import time
 import sys
+import logging
 
+# Импорт централизованной системы логирования
+from src.logger import setup_application_logging, get_logger, ProcessLogger
+
+# Настройка логирования приложения
+setup_application_logging(log_dir="logs", debug=False)
+logger = get_logger("web_server")
 
 app = Flask(__name__)
 app.config['ARTIFACTS_DIR'] = Path('artifacts')
@@ -20,8 +28,13 @@ app.config['UPLOAD_FOLDER'] = Path('artifacts')
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max
 app.config['JSON_AS_ASCII'] = False
 
-# Словарь для отслеживания активных процессов обработки
+# Отключаем стандартное логирование Flask для /api/process/status
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
+
+# Thread-safe словарь для отслеживания активных процессов обработки
 processing_tasks = {}
+processing_tasks_lock = threading.Lock()
 
 
 def get_all_sessions() -> List[Dict]:
@@ -290,11 +303,25 @@ def upload_file():
 
 
 def run_processing(file_path: str, task_id: str, options: Dict):
-    """Запуск обработки в отдельном потоке"""
+    """
+    Запуск обработки в отдельном потоке с качественным логированием
+
+    Args:
+        file_path: Путь к файлу для обработки
+        task_id: Уникальный идентификатор задачи
+        options: Параметры обработки
+    """
+    # Инициализация логгера для этой задачи
+    proc_logger = ProcessLogger(task_id, log_dir="logs")
+
     try:
-        processing_tasks[task_id]['status'] = 'running'
-        processing_tasks[task_id]['stage'] = 'Подготовка...'
-        processing_tasks[task_id]['progress'] = 5
+        proc_logger.info("INIT", f"Начало обработки файла: {file_path}")
+        proc_logger.info("INIT", f"Параметры: {options}")
+
+        with processing_tasks_lock:
+            processing_tasks[task_id]['status'] = 'running'
+            processing_tasks[task_id]['stage'] = 'Подготовка...'
+            processing_tasks[task_id]['progress'] = 5
 
         # Формируем команду
         cmd = [
@@ -305,26 +332,34 @@ def run_processing(file_path: str, task_id: str, options: Dict):
             '--device', options.get('device', 'auto'),
         ]
 
-        # Phase 3: Добавляем флаги для LLM/KeyBERT/Answers
+        # Добавляем флаги для LLM/KeyBERT/Answers
         if options.get('use_llm'):
             cmd.append('--use-llm')
+            proc_logger.info("CONFIG", "LLM (GigaChat) включен")
 
         if options.get('use_keybert'):
             cmd.append('--use-keybert')
+            proc_logger.info("CONFIG", "KeyBERT включен")
 
         if options.get('with_answers'):
             cmd.append('--with-answers')
+            proc_logger.info("CONFIG", "Генерация ответов включена")
 
         if options.get('skip_questions'):
             cmd.append('--skip-questions')
+            proc_logger.info("CONFIG", "Генерация вопросов пропущена")
 
         if options.get('skip_articles'):
             cmd.append('--skip-articles')
+            proc_logger.info("CONFIG", "Поиск статей пропущен")
 
-        processing_tasks[task_id]['stage'] = 'Запуск обработки...'
-        processing_tasks[task_id]['progress'] = 10
+        with processing_tasks_lock:
+            processing_tasks[task_id]['stage'] = 'Запуск обработки...'
+            processing_tasks[task_id]['progress'] = 10
 
-        # Запускаем процесс
+        proc_logger.info("EXEC", f"Запуск команды: {' '.join(cmd)}")
+
+        # Запускаем процесс с таймаутом
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -334,164 +369,166 @@ def run_processing(file_path: str, task_id: str, options: Dict):
             universal_newlines=True
         )
 
-        processing_tasks[task_id]['process'] = process
+        with processing_tasks_lock:
+            processing_tasks[task_id]['process'] = process
+
         output_lines = []
-        # Читаем вывод и обновляем прогресс
         error_lines = []
 
-        # Читаем stdout
+        proc_logger.info("PROC", f"Процесс запущен (PID: {process.pid})")
 
-        print(f"[Task {task_id}] Процесс запущен, читаем вывод...")
-
-        # Читаем stdout
-
+        # Читаем stdout и обновляем прогресс
         if process.stdout:
-
             for line in process.stdout:
-
                 line_stripped = line.strip()
 
-                if line_stripped:  # Игнорируем пустые строки
-
+                if line_stripped:
                     output_lines.append(line_stripped)
 
-                    print(f"[Task {task_id}] {line_stripped}")  # Выводим в консоль сервера для отладки
-                # Обновляем статус на основе вывода (с учетом номеров этапов и английских названий)
+                    # Определяем этап и обновляем прогресс
+                    stage_info = None
+                    progress = None
 
-                if '[1/8]' in line or 'Транскрибация' in line or 'Transcription' in line or 'Transcribing' in line:
+                    if '[1/8]' in line or 'Транскрибация' in line or 'Transcription' in line:
+                        stage_info = 'Транскрибация аудио...'
+                        progress = 20
+                    elif '[2/8]' in line or 'Сегментация' in line or 'Segmentation' in line:
+                        stage_info = 'Семантическая сегментация...'
+                        progress = 35
+                    elif '[3/8]' in line or 'Суммаризация' in line or 'Summarizing' in line:
+                        stage_info = 'Суммаризация сегментов...'
+                        progress = 50
+                    elif '[4/8]' in line or 'Мета-анализ' in line or 'Meta-analysis' in line:
+                        stage_info = 'Мета-анализ контента...'
+                        progress = 65
+                    elif '[5/8]' in line or 'Извлечение терминов' in line or 'Term extraction' in line:
+                        stage_info = 'Извлечение ключевых терминов...'
+                        progress = 75
+                    elif '[6/8]' in line or 'Генерация вопросов' in line or 'Generating questions' in line:
+                        stage_info = 'Генерация вопросов...'
+                        progress = 85
+                    elif '[7/8]' in line or 'Поиск статей' in line or 'Searching articles' in line:
+                        stage_info = 'Поиск релевантных статей...'
+                        progress = 90
+                    elif '[8/8]' in line or 'Экспорт' in line or 'Export' in line:
+                        stage_info = 'Экспорт отчёта...'
+                        progress = 95
+                    elif 'ЗАВЕРШЁН' in line or 'SUCCESS' in line or 'Complete!' in line:
+                        stage_info = 'Завершено!'
+                        progress = 100
 
-                    processing_tasks[task_id]['stage'] = 'Транскрибация...'
+                    # Обновляем статус с thread-safe доступом
+                    if stage_info:
+                        with processing_tasks_lock:
+                            processing_tasks[task_id]['stage'] = stage_info
+                            processing_tasks[task_id]['progress'] = progress
+                        proc_logger.info("STAGE", f"{stage_info} ({progress}%)")
 
-                    processing_tasks[task_id]['progress'] = 20
+                    # Логируем ошибки
+                    if 'ERROR' in line or 'Error' in line or 'Ошибка' in line:
+                        error_lines.append(line_stripped)
+                        proc_logger.error("OUTPUT", line_stripped)
 
-                elif '[2/8]' in line or 'Сегментация' in line or 'Segmentation' in line or 'Segmenting' in line:
-
-                    processing_tasks[task_id]['stage'] = 'Сегментация...'
-
-                    processing_tasks[task_id]['progress'] = 35
-
-                elif '[3/8]' in line or 'Суммаризация' in line or 'Summarizing' in line or 'Summarization' in line:
-
-                    processing_tasks[task_id]['stage'] = 'Суммаризация...'
-
-                    processing_tasks[task_id]['progress'] = 50
-
-                elif '[4/8]' in line or 'Мета-анализ' in line or 'Meta-analysis' in line:
-
-                    processing_tasks[task_id]['stage'] = 'Мета-анализ...'
-
-                    processing_tasks[task_id]['progress'] = 65
-
-                elif '[5/8]' in line or 'Извлечение терминов' in line or 'Term extraction' in line or 'Extracting terms' in line:
-
-                    processing_tasks[task_id]['stage'] = 'Извлечение терминов...'
-
-                    processing_tasks[task_id]['progress'] = 75
-
-                elif '[6/8]' in line or 'Генерация вопросов' in line or 'Generating questions' in line or 'Question generation' in line:
-
-                    processing_tasks[task_id]['stage'] = 'Генерация вопросов...'
-
-                    processing_tasks[task_id]['progress'] = 85
-
-                elif '[7/8]' in line or 'Поиск статей' in line or 'Searching articles' in line or 'Article search' in line:
-
-                    processing_tasks[task_id]['stage'] = 'Поиск статей...'
-
-                    processing_tasks[task_id]['progress'] = 90
-
-                elif '[8/8]' in line or 'Экспорт' in line or 'Export' in line or 'Exporting' in line:
-
-                    processing_tasks[task_id]['stage'] = 'Экспорт отчёта...'
-
-                    processing_tasks[task_id]['progress'] = 95
-
-                elif 'ЗАВЕРШЁН' in line or 'SUCCESS' in line or 'Complete!' in line or 'Finished' in line:
-
-                    processing_tasks[task_id]['stage'] = 'Завершено!'
-
-                    processing_tasks[task_id]['progress'] = 100
         # Ждём завершения и читаем stderr
+        proc_logger.info("PROC", "Процесс завершил работу, ожидание кода возврата...")
 
-        print(f"[Task {task_id}] Процесс завершен, читаем stderr...")
-
-        return_code = process.wait()
+        try:
+            return_code = process.wait(timeout=3600)  # Таймаут 1 час
+        except subprocess.TimeoutExpired:
+            proc_logger.error("PROC", "Превышен таймаут выполнения (1 час)")
+            process.kill()
+            raise TimeoutError("Процесс превысил максимальное время выполнения")
 
         stderr_output = ""
-
         if process.stderr:
             try:
-
                 stderr_output = process.stderr.read()
-
                 if stderr_output:
-
-                    print(f"[Task {task_id}] STDERR: {stderr_output}")
-
+                    proc_logger.warning("STDERR", stderr_output)
             except Exception as e:
+                proc_logger.error("STDERR", f"Не удалось прочитать stderr: {e}")
 
-                print(f"[Task {task_id}] Failed to read stderr: {e}")
+        proc_logger.info("PROC", f"Код возврата: {return_code}")
 
-                stderr_output = ""
+        # Обновляем финальный статус
+        with processing_tasks_lock:
+            if return_code == 0:
+                processing_tasks[task_id]['status'] = 'completed'
+                processing_tasks[task_id]['stage'] = 'Обработка завершена успешно!'
+                processing_tasks[task_id]['progress'] = 100
+                processing_tasks[task_id]['output'] = '\n'.join(output_lines)
+                proc_logger.info("SUCCESS", "Обработка успешно завершена")
+            else:
+                error_msg = f"Процесс завершился с кодом {return_code}\n\n"
+                if stderr_output:
+                    error_msg += f"STDERR:\n{stderr_output}\n\n"
+                if error_lines:
+                    error_msg += f"Ошибки из лога:\n" + "\n".join(error_lines[-10:])
 
-        print(f"[Task {task_id}] Return code: {return_code}")
+                processing_tasks[task_id]['status'] = 'error'
+                processing_tasks[task_id]['stage'] = 'Ошибка обработки'
+                processing_tasks[task_id]['error'] = error_msg
+                processing_tasks[task_id]['output'] = '\n'.join(output_lines)
+                proc_logger.error("FAILED", f"Процесс завершился с ошибкой: {error_msg}")
 
-        if return_code == 0:
-
-            processing_tasks[task_id]['status'] = 'completed'
-
-            processing_tasks[task_id]['stage'] = 'Обработка завершена успешно!'
-
-            processing_tasks[task_id]['progress'] = 100
-
-            processing_tasks[task_id]['output'] = '\n'.join(output_lines)
-
-        else:
-
-            # Формируем подробное сообщение об ошибке
-
-            error_msg = f"Процесс завершился с кодом {return_code}\n\n"
-
-            if stderr_output:
-                error_msg += f"STDERR:\n{stderr_output}\n\n"
-
-            if error_lines:
-                error_msg += f"Ошибки из лога:\n" + "\n".join(error_lines[-10:])  # Последние 10 строк с ошибками
-
+    except TimeoutError as e:
+        with processing_tasks_lock:
             processing_tasks[task_id]['status'] = 'error'
-
-            processing_tasks[task_id]['stage'] = 'Ошибка обработки'
-
-            processing_tasks[task_id]['error'] = error_msg
-            processing_tasks[task_id]['output'] = '\n'.join(output_lines)
+            processing_tasks[task_id]['stage'] = 'Превышен таймаут'
+            processing_tasks[task_id]['error'] = str(e)
+        proc_logger.error("TIMEOUT", str(e), exc_info=True)
 
     except Exception as e:
-        processing_tasks[task_id]['status'] = 'error'
-        processing_tasks[task_id]['stage'] = 'Ошибка'
-        processing_tasks[task_id]['error'] = str(e)
         import traceback
-
         error_trace = traceback.format_exc()
 
-        processing_tasks[task_id]['status'] = 'error'
+        with processing_tasks_lock:
+            processing_tasks[task_id]['status'] = 'error'
+            processing_tasks[task_id]['stage'] = 'Критическая ошибка'
+            processing_tasks[task_id]['error'] = f"Исключение: {str(e)}\n\nТрассировка:\n{error_trace}"
 
-        processing_tasks[task_id]['stage'] = 'Ошибка при выполнении'
-
-        processing_tasks[task_id]['error'] = f"Exception: {str(e)}\n\nTraceback:\n{error_trace}"
+        proc_logger.error("EXCEPTION", f"Критическая ошибка: {str(e)}", exc_info=True)
 
 @app.route('/api/process/start', methods=['POST'])
 def start_processing():
-    """Запуск обработки файла"""
+    """
+    Запуск обработки файла с валидацией и логированием
+
+    Returns:
+        JSON с task_id или ошибкой
+    """
     data = request.get_json()
 
     if not data or 'file_path' not in data:
-        return jsonify({'error': 'No file path provided'}), 400
+        logger.warning("Попытка запуска обработки без указания пути к файлу")
+        return jsonify({'error': 'Путь к файлу не указан'}), 400
 
     file_path = data['file_path']
 
+    # Валидация пути (предотвращение path traversal)
+    try:
+        file_path_obj = Path(file_path).resolve()
+        artifacts_dir = app.config['ARTIFACTS_DIR'].resolve()
+
+        # Проверяем, что файл находится в разрешенной директории
+        if not str(file_path_obj).startswith(str(artifacts_dir)):
+            logger.error(f"Попытка доступа к файлу вне artifacts: {file_path}")
+            return jsonify({'error': 'Недопустимый путь к файлу'}), 403
+
+    except Exception as e:
+        logger.error(f"Ошибка валидации пути: {e}")
+        return jsonify({'error': 'Некорректный путь к файлу'}), 400
+
     # Проверяем существование файла
-    if not Path(file_path).exists():
-        return jsonify({'error': 'File not found'}), 404
+    if not file_path_obj.exists():
+        logger.warning(f"Файл не найден: {file_path}")
+        return jsonify({'error': 'Файл не найден'}), 404
+
+    # Проверяем тип файла
+    allowed_extensions = {'.wav', '.mp3', '.mp4', '.m4a', '.avi', '.mkv'}
+    if file_path_obj.suffix.lower() not in allowed_extensions:
+        logger.warning(f"Недопустимое расширение файла: {file_path_obj.suffix}")
+        return jsonify({'error': 'Недопустимый тип файла'}), 400
 
     # Создаём уникальный ID задачи
     task_id = f"task_{int(time.time() * 1000)}"
@@ -503,44 +540,57 @@ def start_processing():
         'device': data.get('device', 'auto'),
         'skip_questions': data.get('skip_questions', False),
         'skip_articles': data.get('skip_articles', False),
-        # Phase 3: Новые опции
-        'use_llm': data.get('use_llm', True),  # По умолчанию включено
-        'use_keybert': data.get('use_keybert', True),  # По умолчанию включено
-        'with_answers': data.get('with_answers', True),  # По умолчанию включено
+        'use_llm': data.get('use_llm', True),
+        'use_keybert': data.get('use_keybert', True),
+        'with_answers': data.get('with_answers', True),
     }
 
-    # Инициализируем задачу
-    processing_tasks[task_id] = {
-        'status': 'pending',
-        'stage': 'Инициализация...',
-        'progress': 0,
-        'file_path': file_path,
-        'started_at': time.time(),
-        'options': options
-    }
+    # Инициализируем задачу с thread-safe доступом
+    with processing_tasks_lock:
+        processing_tasks[task_id] = {
+            'status': 'pending',
+            'stage': 'Инициализация...',
+            'progress': 0,
+            'file_path': str(file_path_obj),
+            'started_at': time.time(),
+            'options': options
+        }
+
+    logger.info(f"Создана задача {task_id} для файла: {file_path_obj.name}")
+    logger.info(f"Параметры: язык={options['language']}, модель={options['model']}, устройство={options['device']}")
 
     # Запускаем в отдельном потоке
     thread = threading.Thread(
         target=run_processing,
-        args=(file_path, task_id, options)
+        args=(str(file_path_obj), task_id, options),
+        name=f"ProcessingThread-{task_id}"
     )
-    thread.daemon = True
+    thread.daemon = False  # Изменено на False для корректного завершения
     thread.start()
 
     return jsonify({
         'success': True,
         'task_id': task_id,
-        'message': 'Processing started'
+        'message': 'Обработка запущена'
     })
 
 
 @app.route('/api/process/status/<task_id>')
 def processing_status(task_id):
-    """Получить статус обработки"""
-    if task_id not in processing_tasks:
-        return jsonify({'error': 'Task not found'}), 404
+    """
+    Получить статус обработки (без логирования для избежания спама)
 
-    task = processing_tasks[task_id]
+    Args:
+        task_id: ID задачи
+
+    Returns:
+        JSON с информацией о статусе
+    """
+    with processing_tasks_lock:
+        if task_id not in processing_tasks:
+            return jsonify({'error': 'Задача не найдена'}), 404
+
+        task = processing_tasks[task_id].copy()  # Копируем для thread-safety
 
     return jsonify({
         'task_id': task_id,
@@ -556,26 +606,59 @@ def processing_status(task_id):
 
 @app.route('/api/process/cancel/<task_id>', methods=['POST'])
 def cancel_processing(task_id):
-    """Отменить обработку"""
-    if task_id not in processing_tasks:
-        return jsonify({'error': 'Task not found'}), 404
+    """
+    Отменить обработку задачи
 
-    task = processing_tasks[task_id]
+    Args:
+        task_id: ID задачи
 
-    if 'process' in task:
-        task['process'].terminate()
-        task['status'] = 'cancelled'
-        task['stage'] = 'Отменено пользователем'
+    Returns:
+        JSON с результатом отмены
+    """
+    with processing_tasks_lock:
+        if task_id not in processing_tasks:
+            return jsonify({'error': 'Задача не найдена'}), 404
 
-    return jsonify({'success': True})
+        task = processing_tasks[task_id]
+
+        if 'process' in task:
+            try:
+                task['process'].terminate()
+                task['status'] = 'cancelled'
+                task['stage'] = 'Отменено пользователем'
+                logger.info(f"Задача {task_id} отменена пользователем")
+            except Exception as e:
+                logger.error(f"Ошибка при отмене задачи {task_id}: {e}")
+                return jsonify({'error': 'Не удалось отменить задачу'}), 500
+
+    return jsonify({'success': True, 'message': 'Задача отменена'})
 
 
 if __name__ == '__main__':
-    print("=" * 60)
-    print("Video Intelligence System - Web Interface")
-    print("=" * 60)
-    print(f"Artifacts directory: {app.config['ARTIFACTS_DIR']}")
-    print(f"Starting server at http://localhost:5000")
-    print("=" * 60)
+    import platform
 
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    print("\n" + "=" * 70)
+    print("  СИСТЕМА ИНТЕЛЛЕКТУАЛЬНОГО АНАЛИЗА ВИДЕО")
+    print("  Video Intelligence System - Web Interface")
+    print("=" * 70)
+    print(f"  • Директория артефактов: {app.config['ARTIFACTS_DIR']}")
+    print(f"  • Максимальный размер файла: {app.config['MAX_CONTENT_LENGTH'] // (1024*1024)} МБ")
+    print(f"  • Директория логов: logs/")
+    print(f"  • Платформа: {platform.system()} {platform.release()}")
+    print("=" * 70)
+    print("  Сервер запускается на http://localhost:5000")
+    print("  Для остановки используйте Ctrl+C")
+    print("=" * 70 + "\n")
+
+    logger.info("Запуск веб-сервера Video Intelligence System")
+    logger.info(f"Artifacts directory: {app.config['ARTIFACTS_DIR']}")
+    logger.info("Сервер готов к приёму запросов")
+
+    try:
+        app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)
+    except KeyboardInterrupt:
+        logger.info("Получен сигнал остановки сервера")
+        print("\n\nСервер остановлен пользователем")
+    except Exception as e:
+        logger.error(f"Критическая ошибка сервера: {e}", exc_info=True)
+        raise
