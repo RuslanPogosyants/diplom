@@ -431,9 +431,25 @@ class ArticleSearcher:
         with open(terms_path, 'r', encoding='utf-8') as f:
             terms_data = json.load(f)
 
-        # Извлекаем топ-термины
-        technical_terms = terms_data["glossary"]["technical_terms"]
-        terms_list = [term["term"] for term in technical_terms[:10]]  # Топ-10 терминов
+        # Извлекаем топ-термины (поддержка обоих форматов: LLM и SpaCy)
+        glossary = terms_data.get("glossary", {})
+
+        # Новый формат (LLM)
+        if "key_terms" in glossary:
+            key_terms = glossary["key_terms"]
+            # Приоритет для терминов высокой релевантности
+            high_relevance = [t["term"] for t in key_terms if t.get("relevance") == "high"]
+            medium_relevance = [t["term"] for t in key_terms if t.get("relevance") == "medium"]
+            terms_list = (high_relevance + medium_relevance)[:15]
+            print(f"[INFO] Using LLM-extracted key terms")
+        # Старый формат (SpaCy)
+        elif "technical_terms" in glossary:
+            technical_terms = glossary["technical_terms"]
+            terms_list = [term["term"] for term in technical_terms[:10]]
+            print(f"[INFO] Using SpaCy-extracted terms")
+        else:
+            print(f"[WARN] No terms found in glossary, using fallback")
+            terms_list = []
 
         # Пытаемся получить контекст из суммаризации (если есть)
         context = ""

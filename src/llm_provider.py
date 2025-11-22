@@ -555,6 +555,146 @@ class LLMProvider:
 
         return questions[:num_questions]
 
+    def extract_key_terms(
+            self,
+            summaries: List[str],
+            num_terms: int = 15,
+            include_multiword: bool = True
+    ) -> List[Dict[str, str]]:
+        """
+        Извлечение ключевых терминов и концепций для поиска статей
+
+        Args:
+            summaries: список суммаризаций сегментов
+            num_terms: количество терминов для извлечения
+            include_multiword: включать многословные термины
+
+        Returns:
+            Список терминов с метаданными (тип, важность)
+        """
+        print("\n" + "=" * 60)
+        print(f"[LLM] 🔑 Extracting {num_terms} key terms")
+        print("=" * 60)
+        print(f"[LLM] Input: {len(summaries)} summaries")
+
+        # Объединяем суммаризации
+        combined_text = "\n\n".join([
+            f"Раздел {i + 1}: {summary}"
+            for i, summary in enumerate(summaries)
+        ])
+
+        # Системный промпт
+        system_prompt = """Ты — эксперт по анализу научного и образовательного контента.
+Твоя задача — извлечь ключевые термины и концепции из текста лекции для последующего поиска релевантных материалов.
+
+КРИТИЧЕСКИ ВАЖНО:
+- Выделяй ТОЛЬКО термины, по которым студент может найти ПОЛЕЗНЫЕ материалы для углубленного изучения
+- НЕ выделяй общие слова, которые встречаются везде (например: "система", "метод", "процесс")
+- Фокусируйся на СПЕЦИФИЧЕСКИХ концепциях, технологиях, теориях
+- Думай: "Если я введу этот термин в Google Scholar или Habr, найду ли я качественные статьи?"
+
+Типы терминов для извлечения:
+1. КОНЦЕПЦИИ: фундаментальные идеи, теории, принципы (например: "нейронные сети", "функциональное программирование")
+2. ТЕХНОЛОГИИ: конкретные инструменты, библиотеки, фреймворки (например: "React", "PyTorch", "Docker")
+3. МЕТОДЫ: алгоритмы, подходы, техники (например: "градиентный спуск", "рефакторинг", "CI/CD")
+4. ТЕРМИНЫ: специфическая терминология предметной области (например: "полиморфизм", "регуляризация")
+
+Формат ответа (строго соблюдай):
+[КОНЦЕПЦИЯ] Название концепции
+[ТЕХНОЛОГИЯ] Название технологии
+[МЕТОД] Название метода
+[ТЕРМИН] Специфический термин
+
+Примеры ХОРОШИХ терминов:
+✓ [КОНЦЕПЦИЯ] машинное обучение
+✓ [ТЕХНОЛОГИЯ] TensorFlow
+✓ [МЕТОД] обратное распространение ошибки
+✓ [ТЕРМИН] градиентный спуск
+
+Примеры ПЛОХИХ терминов (НЕ извлекай такие):
+✗ система
+✗ метод
+✗ процесс
+✗ данные
+✗ информация
+✗ работа"""
+
+        # Пользовательский промпт
+        user_prompt = f"""Проанализируй содержание следующей лекции и извлеки {num_terms} ключевых терминов для поиска образовательных материалов:
+
+{combined_text}
+
+Извлеки термины, которые помогут найти:
+- Научные статьи и исследования
+- Технические руководства
+- Обучающие материалы
+- Специализированную литературу
+
+ВАЖНО: Выбирай только те термины, по которым РЕАЛЬНО можно найти полезные материалы!
+
+Ключевые термины:"""
+
+        # Генерация с кэшированием
+        response = self._chat_with_cache(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+            temperature=0.3  # Низкая температура для стабильности
+        )
+
+        print(f"\n[DEBUG] Raw terms response:")
+        print("=" * 60)
+        print(response[:400] + "..." if len(response) > 400 else response)
+        print("=" * 60)
+
+        # Парсинг терминов
+        terms = []
+
+        for line in response.strip().split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            # Поиск типа термина
+            term_type = "general"
+            term_text = line
+
+            if any(tag in line.upper() for tag in ["[КОНЦЕПЦИЯ]", "[КОНЦЕПТ]", "[CONCEPT]"]):
+                term_type = "concept"
+                term_text = line.split(']', 1)[1].strip() if ']' in line else line
+            elif any(tag in line.upper() for tag in ["[ТЕХНОЛОГИЯ]", "[TECH]", "[TECHNOLOGY]"]):
+                term_type = "technology"
+                term_text = line.split(']', 1)[1].strip() if ']' in line else line
+            elif any(tag in line.upper() for tag in ["[МЕТОД]", "[METHOD]"]):
+                term_type = "method"
+                term_text = line.split(']', 1)[1].strip() if ']' in line else line
+            elif any(tag in line.upper() for tag in ["[ТЕРМИН]", "[TERM]"]):
+                term_type = "term"
+                term_text = line.split(']', 1)[1].strip() if ']' in line else line
+
+            # Очистка от нумерации
+            term_text = term_text.lstrip('0123456789.-) ').strip()
+
+            # Фильтрация
+            if term_text and len(term_text) > 2 and not term_text.lower() in ['система', 'метод', 'процесс', 'данные', 'информация', 'работа']:
+                terms.append({
+                    "term": term_text,
+                    "type": term_type,
+                    "relevance": "high" if term_type in ["concept", "technology"] else "medium"
+                })
+                print(f"[DEBUG] Parsed term: [{term_type.upper()}] {term_text}")
+
+        print(f"\n[LLM] ✅ Extracted {len(terms)} terms")
+
+        # Группировка по типам для статистики
+        type_counts = {}
+        for t in terms:
+            term_type = t["type"]
+            type_counts[term_type] = type_counts.get(term_type, 0) + 1
+
+        print(f"[LLM] By type: {type_counts}")
+
+        return terms[:num_terms]
+
 
 def main():
     """Пример использования"""

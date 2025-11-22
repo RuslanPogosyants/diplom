@@ -13,11 +13,44 @@ import re
 class TermExtractor:
     """Извлечение терминов и NER"""
 
-    def __init__(self, model_name: str = "ru_core_news_lg"):
+    def __init__(
+            self,
+            model_name: str = "ru_core_news_lg",
+            use_llm: bool = True,
+            llm_provider: 'LLMProvider' = None
+    ):
         """
         Args:
-            model_name: название SpaCy модели
+            model_name: название SpaCy модели (для fallback)
+            use_llm: использовать LLM (GigaChat) для извлечения ключевых терминов
+            llm_provider: провайдер LLM (если None, создаётся автоматически)
         """
+        self.use_llm = use_llm
+        self.llm = llm_provider
+
+        # Инициализация LLM
+        if use_llm and llm_provider is None:
+            try:
+                print("[INFO] Initializing GigaChat for key term extraction...")
+                from src.llm_provider import LLMProvider, LLMConfig
+
+                config = LLMConfig(
+                    provider="gigachat",
+                    model="GigaChat",
+                    temperature=0.3,
+                    max_tokens=1000,
+                    use_cache=True
+                )
+
+                self.llm = LLMProvider(config)
+                print("[✓] GigaChat initialized for term extraction")
+            except Exception as e:
+                print(f"[WARN] Failed to initialize GigaChat: {e}")
+                print("[WARN] Falling back to SpaCy-based extraction")
+                self.use_llm = False
+                self.llm = None
+
+        # Загрузка SpaCy (для NER и fallback)
         print(f"[INFO] Loading SpaCy model: {model_name}")
 
         try:
@@ -188,13 +221,126 @@ class TermExtractor:
 
         return glossary
 
+    def extract_key_terms_from_summaries(
+            self,
+            summaries: List[str],
+            num_terms: int = 15
+    ) -> List[Dict[str, str]]:
+        """
+        Извлечение ключевых терминов через LLM из суммаризаций
+
+        Args:
+            summaries: список суммаризаций сегментов
+            num_terms: количество терминов
+
+        Returns:
+            Список терминов с метаданными
+        """
+        if not self.use_llm or not self.llm:
+            print("[WARN] LLM not available, using fallback term extraction")
+            # Fallback: объединяем суммаризации и используем SpaCy
+            combined_text = " ".join(summaries)
+            single_terms = self.extract_technical_terms(combined_text, min_frequency=1)
+            return [
+                {"term": term, "frequency": freq, "type": "spacy_extracted"}
+                for term, freq in single_terms[:num_terms]
+            ]
+
+        # Используем LLM для извлечения терминов
+        print("[INFO] Using LLM for intelligent term extraction...")
+        llm_terms = self.llm.extract_key_terms(summaries, num_terms=num_terms)
+
+        return llm_terms
+
+    def process_summaries(
+            self,
+            summaries_path: Path,
+            output_dir: Path = None
+    ) -> Dict:
+        """
+        Извлечение терминов из суммаризаций (новый подход с LLM)
+
+        Args:
+            summaries_path: путь к summaries_per_segment.json
+            output_dir: директория для сохранения
+
+        Returns:
+            Dict с результатами
+        """
+        print(f"\n{'=' * 60}")
+        print("[INFO] Starting LLM-based term extraction")
+        print(f"{'=' * 60}\n")
+
+        # Загрузка суммаризаций
+        with open(summaries_path, 'r', encoding='utf-8') as f:
+            summaries_data = json.load(f)
+
+        segments = summaries_data.get("segments", [])
+        summaries = [seg["summary"] for seg in segments if "summary" in seg]
+
+        print(f"[INFO] Loaded {len(summaries)} summaries")
+
+        # Извлечение ключевых терминов через LLM
+        key_terms = self.extract_key_terms_from_summaries(summaries, num_terms=20)
+
+        print(f"[INFO] Extracted {len(key_terms)} key terms via LLM")
+
+        # Также извлекаем NER из полного текста (для дополнительной информации)
+        print("[INFO] Extracting named entities from full transcript...")
+        full_text = " ".join([seg.get("text", "") for seg in segments])
+        entities = self.extract_entities(full_text[:50000])  # Ограничиваем для производительности
+
+        # Формируем глоссарий в новом формате
+        glossary = {
+            "key_terms": [
+                {
+                    "term": t["term"],
+                    "frequency": 1,  # LLM не даёт частоту
+                    "type": t.get("type", "general"),
+                    "relevance": t.get("relevance", "medium")
+                }
+                for t in key_terms
+            ],
+            "named_entities": {
+                "persons": list(set(e["text"] for e in entities.get("PERSON", []))),
+                "organizations": list(set(e["text"] for e in entities.get("ORG", []))),
+                "locations": list(set(e["text"] for e in entities.get("LOC", []) + entities.get("GPE", []))),
+            }
+        }
+
+        # Статистика
+        stats = {
+            "total_key_terms": len(key_terms),
+            "total_entities": sum(len(entities[k]) for k in entities),
+            "extraction_method": "llm" if self.use_llm else "spacy"
+        }
+
+        result = {
+            "glossary": glossary,
+            "entities_detailed": entities,
+            "key_terms_detailed": key_terms,
+            "statistics": stats
+        }
+
+        print(f"\n[✓] LLM-based term extraction complete!")
+        print(f"[INFO] Key terms extracted: {stats['total_key_terms']}")
+        print(f"[INFO] Entities found: {stats['total_entities']}")
+
+        # Сохранение
+        if output_dir is None:
+            output_dir = summaries_path.parent
+
+        self.save_results(result, output_dir)
+
+        return result
+
     def process_transcript(
             self,
             transcript_path: Path,
             output_dir: Path = None
     ) -> Dict:
         """
-        Полный процесс извлечения терминов
+        Полный процесс извлечения терминов (старый подход SpaCy)
         """
         print(f"\n{'=' * 60}")
         print("[INFO] Starting term extraction")

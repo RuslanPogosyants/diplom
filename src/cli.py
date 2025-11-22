@@ -246,8 +246,11 @@ def process_all(video, model, language, device, output_dir, enable_scraping, ski
 
         # Этап 5: Извлечение терминов
         click.echo("\n[5/8] 📚 Извлечение терминов...")
-        extractor = TermExtractor()
-        terms = extractor.process_transcript(transcript_path)
+        if use_llm:
+            click.echo("   🤖 Использую GigaChat для умного извлечения ключевых терминов")
+        extractor = TermExtractor(use_llm=use_llm)
+        # Используем суммаризации для LLM-based извлечения (точнее, чем raw transcript)
+        terms = extractor.process_summaries(summaries_path)
         terms_path = output_path / "terms_and_entities.json"
 
         # Этап 6: Генерация вопросов (опционально)
