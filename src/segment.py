@@ -4,6 +4,7 @@
 """
 import json
 import numpy as np
+import torch
 from pathlib import Path
 from typing import List, Dict, Tuple
 from sentence_transformers import SentenceTransformer
@@ -31,14 +32,18 @@ class TranscriptSegmenter:
         """
         Args:
             model_name: название модели для эмбеддингов
-            device: cuda или cpu
+            device: cuda, cpu, или auto
             cache_dir: директория для кэширования моделей
         """
-        print(f"[INFO] Loading sentence transformer: {model_name}")
-        self.model = SentenceTransformer(model_name, device=device, cache_folder=cache_dir)
-        print(f"[✓] Model loaded on {device}")
+        # Определение устройства
+        if device == "auto":
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            self.device = device
 
-        self.device = device
+        print(f"[INFO] Loading sentence transformer: {model_name}")
+        self.model = SentenceTransformer(model_name, device=self.device, cache_folder=cache_dir)
+        print(f"[✓] Model loaded on {self.device}")
 
     def split_into_sentences(self, text: str) -> List[str]:
         """Разбивка текста на предложения"""

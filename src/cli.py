@@ -296,7 +296,7 @@ def process_all(video, model, language, device, output_dir, enable_scraping, ski
         click.echo(f"\n❌ ОШИБКА: {e}", err=True)
         import traceback
         traceback.print_exc()
-        return 1
+        sys.exit(1)
 
 
 @cli.command()
