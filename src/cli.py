@@ -154,17 +154,22 @@ def generate_questions(summaries, num_questions, use_model, use_llm, with_answer
 @click.argument('terms', type=click.Path(exists=True))
 @click.option('--enable-scraping', is_flag=True, help='Включить веб-скрейпинг')
 @click.option('--max-articles', default=10, type=int, help='Максимум статей')
-def search_articles(terms, enable_scraping, max_articles):
+@click.option('--use-llm', is_flag=True, help='Использовать GigaChat для генерации запросов')
+def search_articles(terms, enable_scraping, max_articles, use_llm):
     """Поиск релевантных статей"""
     click.echo(f"🔎 Поиск статей: {terms}")
 
     if not enable_scraping:
         click.echo("⚠️  Веб-скрейпинг отключен (используйте --enable-scraping)")
 
+    if use_llm:
+        click.echo("   🤖 Использую GigaChat для генерации поисковых запросов")
+
     terms_path = Path(terms)
     searcher = ArticleSearcher(
         enable_scraping=enable_scraping,
-        max_articles=max_articles
+        max_articles=max_articles,
+        use_llm=use_llm
     )
 
     articles = searcher.process_terms_file(terms_path)
@@ -268,7 +273,9 @@ def process_all(video, model, language, device, output_dir, enable_scraping, ski
         # Этап 7: Поиск статей (опционально)
         if not skip_articles:
             click.echo("\n[7/8] 🔎 Поиск статей...")
-            searcher = ArticleSearcher(enable_scraping=enable_scraping)
+            if use_llm:
+                click.echo("   🤖 Использую GigaChat для генерации поисковых запросов")
+            searcher = ArticleSearcher(enable_scraping=enable_scraping, use_llm=use_llm)
             articles = searcher.process_terms_file(terms_path)
         else:
             click.echo("\n[7/8] ⏭️  Пропускаем поиск статей")

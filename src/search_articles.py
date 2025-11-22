@@ -19,17 +19,42 @@ class ArticleSearcher:
             self,
             enable_scraping: bool = True,
             rate_limit_delay: int = 2,
-            max_articles: int = 10
+            max_articles: int = 10,
+            use_llm: bool = True
     ):
         """
         Args:
             enable_scraping: разрешить веб-скрейпинг
             rate_limit_delay: задержка между запросами (сек)
             max_articles: максимальное количество статей
+            use_llm: использовать GigaChat для генерации запросов
         """
         self.enable_scraping = enable_scraping
         self.rate_limit_delay = rate_limit_delay
         self.max_articles = max_articles
+        self.use_llm = use_llm
+        self.llm = None
+
+        # Инициализация LLM для генерации запросов
+        if use_llm:
+            try:
+                print("[INFO] Initializing GigaChat for search query generation...")
+                from src.llm_provider import LLMProvider, LLMConfig
+
+                config = LLMConfig(
+                    provider="gigachat",
+                    model="GigaChat",
+                    temperature=0.5,
+                    max_tokens=500,
+                    use_cache=True
+                )
+
+                self.llm = LLMProvider(config)
+                print("[✓] GigaChat initialized for search queries")
+            except Exception as e:
+                print(f"[WARN] Failed to initialize GigaChat: {e}")
+                print("[WARN] Falling back to simple term-based search")
+                self.use_llm = False
 
         if enable_scraping:
             print("[INFO] Web scraping enabled")
@@ -44,6 +69,86 @@ class ArticleSearcher:
             cache_folder="models/sentence_transformers"
         )
         print("[✓] Model loaded")
+
+    def generate_search_queries(
+            self,
+            terms: List[str],
+            context: str = "",
+            num_queries: int = 5
+    ) -> List[str]:
+        """
+        Генерация качественных поисковых запросов через GigaChat
+
+        Args:
+            terms: список ключевых терминов из видео
+            context: контекст (краткое описание темы видео)
+            num_queries: количество запросов для генерации
+
+        Returns:
+            Список поисковых запросов
+        """
+        if not self.use_llm or not self.llm:
+            # Fallback: просто используем термины
+            return terms[:num_queries]
+
+        print(f"\n[LLM] Generating {num_queries} search queries...")
+
+        system_prompt = """Ты — эксперт по информационному поиску научных и технических материалов.
+Твоя задача — сгенерировать оптимальные поисковые запросы для академических баз данных (Google Scholar, РИНЦ, Habr).
+
+Требования к запросам:
+- Формулировка должна быть точной и научной
+- Использовать русские и английские термины
+- Запросы должны находить РЕЛЕВАНТНЫЕ материалы, а не общую информацию
+- Ориентация на обучающие и исследовательские статьи
+- Избегать слишком широких или слишком узких запросов
+
+Формат ответа:
+Один запрос на строку, без нумерации"""
+
+        terms_str = ", ".join(terms[:10])
+        user_prompt = f"""На основе следующих ключевых терминов из образовательного видео создай {num_queries} поисковых запросов:
+
+Термины: {terms_str}
+
+{f"Контекст видео: {context}" if context else ""}
+
+Создай запросы, которые помогут найти:
+1. Научные статьи и исследования по теме
+2. Технические обзоры и руководства
+3. Образовательные материалы для углубленного изучения
+
+Поисковые запросы:"""
+
+        try:
+            response = self.llm._chat_with_cache(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                temperature=0.5
+            )
+
+            # Парсим запросы (по одному на строку)
+            queries = []
+            for line in response.strip().split('\n'):
+                line = line.strip()
+                # Убираем нумерацию если есть
+                line = line.lstrip('0123456789.-) ')
+                if line and len(line) > 10:
+                    queries.append(line)
+
+            if queries:
+                print(f"[LLM] ✅ Generated {len(queries)} queries:")
+                for q in queries[:num_queries]:
+                    print(f"  - {q}")
+                return queries[:num_queries]
+            else:
+                print(f"[LLM] ⚠️ No queries generated, using fallback")
+                return terms[:num_queries]
+
+        except Exception as e:
+            print(f"[LLM] ❌ Error generating queries: {e}")
+            print(f"[LLM] Using fallback (terms as queries)")
+            return terms[:num_queries]
 
     def search_google_scholar(
             self,
@@ -316,7 +421,7 @@ class ArticleSearcher:
             output_dir: Path = None
     ) -> Dict:
         """
-        Полный процесс поиска статей
+        Полный процесс поиска статей с умной генерацией запросов через GigaChat
         """
         print(f"\n{'=' * 60}")
         print("[INFO] Starting article search")
@@ -326,11 +431,35 @@ class ArticleSearcher:
         with open(terms_path, 'r', encoding='utf-8') as f:
             terms_data = json.load(f)
 
-        # Извлекаем топ-термины как темы для поиска
+        # Извлекаем топ-термины
         technical_terms = terms_data["glossary"]["technical_terms"]
-        topics = [term["term"] for term in technical_terms[:5]]  # Топ-5 терминов
+        terms_list = [term["term"] for term in technical_terms[:10]]  # Топ-10 терминов
 
-        print(f"[INFO] Selected topics: {topics}")
+        # Пытаемся получить контекст из суммаризации (если есть)
+        context = ""
+        summary_path = terms_path.parent / "summaries_per_segment.json"
+        if summary_path.exists():
+            try:
+                with open(summary_path, 'r', encoding='utf-8') as f:
+                    summary_data = json.load(f)
+                    context = summary_data.get("meta_summary", "")[:300]  # Первые 300 символов
+            except:
+                pass
+
+        print(f"[INFO] Extracted {len(terms_list)} key terms")
+        if context:
+            print(f"[INFO] Using video context for query generation")
+
+        # Генерация умных поисковых запросов через GigaChat
+        topics = self.generate_search_queries(
+            terms=terms_list,
+            context=context,
+            num_queries=5
+        )
+
+        print(f"\n[INFO] Search queries to use:")
+        for i, topic in enumerate(topics, 1):
+            print(f"  {i}. {topic}")
 
         # Поиск статей
         articles_by_topic = self.search_for_topics(
