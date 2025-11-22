@@ -57,22 +57,22 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            <i class="bi bi-file-text" style="font-size: 2rem;"></i>
+        <div class="stat-card">
+            <i class="bi bi-file-text" style="font-size: 1.5rem; color: var(--text-secondary);"></i>
             <div class="stat-value">{{ stats.num_segments }}</div>
             <div class="stat-label">Сегментов</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-            <i class="bi bi-chat-text" style="font-size: 2rem;"></i>
+        <div class="stat-card">
+            <i class="bi bi-chat-text" style="font-size: 1.5rem; color: var(--text-secondary);"></i>
             <div class="stat-value">{{ "{:,}".format(stats.total_words).replace(',', ' ') }}</div>
             <div class="stat-label">Слов</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-            <i class="bi bi-speedometer" style="font-size: 2rem;"></i>
+        <div class="stat-card">
+            <i class="bi bi-speedometer" style="font-size: 1.5rem; color: var(--text-secondary);"></i>
             <div class="stat-value">{{ "%.0f"|format(stats.words_per_minute) }}</div>
             <div class="stat-label">Слов/мин</div>
         </div>
@@ -129,7 +129,7 @@
                 <i class="bi bi-stars"></i> Общий обзор
             </div>
             <div class="card-body">
-                <div class="alert alert-primary" role="alert" style="background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%); border: none;">
+                <div class="alert alert-info" role="alert">
                     <h5><i class="bi bi-journal-text"></i> Суммаризация всего видео:</h5>
                     <p class="mb-0 mt-3">{{ data.final_summary.overview }}</p>
                 </div>
@@ -268,7 +268,7 @@
                         <span class="timestamp">{{ seg.start|format_time }}</span>
                     </div>
 
-                    <div class="alert alert-success mt-3" style="background: #d1fae5; border: none; border-left: 4px solid #10b981;">
+                    <div class="alert alert-success mt-3">
                         <strong><i class="bi bi-lightning-charge"></i> Суммаризация:</strong>
                         <p class="mb-0 mt-2">{{ seg.summary }}</p>
                     </div>
@@ -277,7 +277,7 @@
                         <summary class="text-muted" style="cursor: pointer;">
                             <i class="bi bi-eye"></i> Показать полный текст
                         </summary>
-                        <div class="mt-2 p-3" style="background: #f9fafb; border-radius: 8px;">
+                        <div class="mt-2 p-3" style="background: var(--bg-dark); border-radius: 2px; border: 1px solid var(--border-color);">
                             {{ seg.text }}
                         </div>
                     </details>
@@ -343,9 +343,9 @@
                 <div class="row">
                     {% for term in data.terms.glossary.key_terms %}
                     <div class="col-md-6 mb-3">
-                        <div class="d-flex justify-content-between align-items-center p-3" style="background: #f9fafb; border-radius: 8px; border-left: 4px solid var(--primary-color);">
-                            <strong>{{ term.term }}</strong>
-                            <span class="badge bg-primary">{{ term.frequency }}</span>
+                        <div class="d-flex justify-content-between align-items-center p-3" style="background: var(--bg-dark); border-radius: 2px; border: 1px solid var(--border-color); border-left: 2px solid var(--accent-color);">
+                            <strong style="color: var(--text-primary);">{{ term.term }}</strong>
+                            <span class="badge bg-secondary">{{ term.frequency }}</span>
                         </div>
                     </div>
                     {% endfor %}
@@ -358,7 +358,7 @@
             {% if data.terms.glossary.named_entities.persons %}
             <div class="col-md-6 mb-4">
                 <div class="card">
-                    <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="card-header">
                         <i class="bi bi-person"></i> Персоны
                     </div>
                     <div class="card-body">
@@ -373,7 +373,7 @@
             {% if data.terms.glossary.named_entities.organizations %}
             <div class="col-md-6 mb-4">
                 <div class="card">
-                    <div class="card-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <div class="card-header">
                         <i class="bi bi-building"></i> Организации
                     </div>
                     <div class="card-body">
@@ -388,7 +388,7 @@
             {% if data.terms.glossary.named_entities.locations %}
             <div class="col-md-6 mb-4">
                 <div class="card">
-                    <div class="card-header" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <div class="card-header">
                         <i class="bi bi-geo-alt"></i> Локации
                     </div>
                     <div class="card-body">
@@ -452,26 +452,26 @@
                     </div>
 
                     <!-- Текст вопроса -->
-                    <div class="question-text mt-3 mb-3" style="font-size: 1.1rem; font-weight: 500; padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                    <div class="question-text mt-3 mb-3" style="font-size: 1.05rem; font-weight: 400; padding: 1rem; background: var(--bg-dark); border-radius: 2px; border-left: 2px solid var(--accent-color); color: var(--text-primary);">
                         {{ question.question }}
                     </div>
 
                     <!-- Кнопка показать ответ -->
-                    <button class="btn btn-primary btn-sm mb-3 show-answer-btn" onclick="toggleAnswer(this)">
+                    <button class="btn btn-primary mb-3 show-answer-btn" onclick="toggleAnswer(this)">
                         <i class="bi bi-eye"></i> Показать ответ
                     </button>
 
                     <!-- Ответ и объяснение (скрыто по умолчанию) -->
                     <div class="answer-section" style="display: none;">
                         {% if question.answer %}
-                        <div class="alert alert-success mt-3" style="background: #d1fae5; border: none; border-left: 4px solid #10b981;">
+                        <div class="alert alert-success mt-3">
                             <strong><i class="bi bi-check-circle"></i> Правильный ответ:</strong>
                             <p class="mb-0 mt-2">{{ question.answer }}</p>
                         </div>
                         {% endif %}
 
                         {% if question.explanation %}
-                        <div class="alert alert-info mt-2" style="background: #dbeafe; border: none; border-left: 4px solid #3b82f6;">
+                        <div class="alert alert-info mt-2">
                             <strong><i class="bi bi-lightbulb"></i> Объяснение:</strong>
                             <p class="mb-0 mt-2">{{ question.explanation }}</p>
                         </div>

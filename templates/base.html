@@ -14,37 +14,29 @@
 
     <style>
         :root {
-            /* Технический терминальный стиль */
-            --primary-color: #0A84FF;
-            --secondary-color: #1C1C1E;
-            --accent-color: #64D2FF;
-            --success-color: #30D158;
-            --danger-color: #FF453A;
-            --warning-color: #FFD60A;
-            --info-color: #64D2FF;
-            --dark-color: #000000;
-            --light-color: #F2F2F7;
-            --bg-dark: #1C1C1E;
-            --bg-medium: #2C2C2E;
-            --bg-light: #0D0D0D;
-            --border-color: #3A3A3C;
-            --text-primary: #E5E5EA;
-            --text-secondary: #98989D;
-            --terminal-green: #30D158;
-            --terminal-blue: #0A84FF;
-            --terminal-red: #FF453A;
+            /* Утонченный функциональный стиль */
+            --primary-color: #8a8a8a;
+            --secondary-color: #242424;
+            --accent-color: #6a6a6a;
+            --success-color: #7a9d7a;
+            --danger-color: #9d7a7a;
+            --warning-color: #9d9d7a;
+            --info-color: #7a9d9d;
+            --bg-dark: #1a1a1a;
+            --bg-medium: #242424;
+            --bg-light: #1a1a1a;
+            --border-color: #333333;
+            --text-primary: #f5f5f0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #707070;
         }
 
         * {
-            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', 'Courier New', monospace;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
         }
 
         body {
             background: var(--bg-light);
-            background-image:
-                linear-gradient(rgba(58, 58, 60, 0.3) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(58, 58, 60, 0.3) 1px, transparent 1px);
-            background-size: 16px 16px;
             min-height: 100vh;
             padding-bottom: 50px;
             color: var(--text-primary);
@@ -52,34 +44,30 @@
 
         .navbar {
             background: var(--bg-dark) !important;
-            border-bottom: 2px solid var(--terminal-blue);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: none;
         }
 
         .navbar-brand {
-            font-weight: 600;
-            font-size: 1.3rem;
-            color: var(--terminal-green) !important;
-            letter-spacing: 0.5px;
+            font-weight: 500;
+            font-size: 1.1rem;
+            color: var(--text-primary) !important;
+            letter-spacing: 0;
         }
 
         .navbar-brand i {
-            color: var(--terminal-blue);
-        }
-
-        .navbar-brand::before {
-            content: ">> ";
-            color: var(--terminal-blue);
+            color: var(--text-secondary);
+            margin-right: 0.5rem;
         }
 
         .nav-link {
             color: var(--text-secondary) !important;
             transition: color 0.2s;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
         }
 
         .nav-link:hover {
-            color: var(--terminal-blue) !important;
+            color: var(--text-primary) !important;
         }
 
         .main-container {
@@ -88,39 +76,26 @@
 
         .card {
             border: 1px solid var(--border-color);
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-            transition: all 0.2s ease;
+            border-radius: 2px;
+            box-shadow: none;
+            transition: none;
             background: var(--bg-medium);
         }
 
         .card:hover {
-            border-color: var(--terminal-blue);
-            box-shadow: 0 4px 16px rgba(10, 132, 255, 0.3);
+            border-color: var(--border-color);
         }
 
         .card-header {
             background: var(--bg-dark);
-            color: var(--terminal-green);
+            color: var(--text-primary);
             border: none;
-            border-radius: 4px 4px 0 0 !important;
+            border-radius: 2px 2px 0 0 !important;
             padding: 0.75rem 1.25rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid var(--terminal-blue);
+            font-weight: 500;
+            letter-spacing: 0;
+            border-bottom: 1px solid var(--border-color);
             font-size: 0.95rem;
-        }
-
-        .card-header::before {
-            content: "[";
-            color: var(--text-secondary);
-            margin-right: 0.3rem;
-        }
-
-        .card-header::after {
-            content: "]";
-            color: var(--text-secondary);
-            margin-left: 0.3rem;
         }
 
         .card-body {
@@ -131,77 +106,67 @@
         .badge {
             padding: 0.3rem 0.6rem;
             border-radius: 2px;
-            font-weight: 500;
+            font-weight: 400;
             font-size: 0.75rem;
-            border: 1px solid;
         }
 
         .badge.bg-success {
-            background: transparent !important;
-            color: var(--terminal-green);
-            border-color: var(--terminal-green);
+            background: var(--success-color) !important;
+            color: var(--text-primary);
+            border: none;
         }
 
         .badge.bg-warning {
-            background: transparent !important;
-            color: var(--warning-color);
-            border-color: var(--warning-color);
+            background: var(--warning-color) !important;
+            color: var(--bg-dark);
+            border: none;
         }
 
         .badge.bg-danger {
-            background: transparent !important;
-            color: var(--terminal-red);
-            border-color: var(--terminal-red);
+            background: var(--danger-color) !important;
+            color: var(--text-primary);
+            border: none;
         }
 
         .stat-card {
             background: var(--bg-dark);
             color: var(--text-primary);
-            border-radius: 4px;
-            border: 1px solid var(--terminal-blue);
+            border-radius: 2px;
+            border: 1px solid var(--border-color);
             padding: 1.25rem;
             text-align: center;
             margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
         }
 
         .stat-value {
-            font-size: 2.2rem;
-            font-weight: 700;
+            font-size: 2rem;
+            font-weight: 500;
             margin: 8px 0;
-            color: var(--terminal-blue);
+            color: var(--text-primary);
         }
 
         .stat-label {
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
 
         .btn-primary {
             background: var(--bg-dark);
-            border: 1px solid var(--terminal-blue);
-            color: var(--terminal-blue);
+            border: 1px solid var(--accent-color);
+            color: var(--text-primary);
             padding: 0.6rem 1.2rem;
-            border-radius: 3px;
-            font-weight: 500;
+            border-radius: 2px;
+            font-weight: 400;
             transition: all 0.2s ease;
             font-size: 0.9rem;
         }
 
         .btn-primary:hover {
-            background: var(--terminal-blue);
-            color: var(--bg-dark);
-            border-color: var(--terminal-blue);
-        }
-
-        .btn-primary:hover {
             background: var(--bg-medium);
-            border-color: var(--accent-color);
-            color: white;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border-color: var(--primary-color);
+            color: var(--text-primary);
         }
 
         .timeline-item {
@@ -216,17 +181,17 @@
             left: 10px;
             top: 0;
             bottom: -30px;
-            width: 3px;
-            background: var(--accent-color);
+            width: 1px;
+            background: var(--border-color);
         }
 
         .timeline-dot {
             position: absolute;
-            left: 0;
+            left: 5px;
             top: 5px;
-            width: 20px;
-            height: 20px;
-            border-radius: 3px;
+            width: 10px;
+            height: 10px;
+            border-radius: 1px;
             background: var(--bg-dark);
             border: 3px solid var(--accent-color);
         }
@@ -234,43 +199,41 @@
         .segment-card {
             background: var(--bg-medium);
             border: 1px solid var(--border-color);
-            border-left: 3px solid var(--terminal-blue);
+            border-left: 2px solid var(--accent-color);
             padding: 1.5rem;
             margin-bottom: 1rem;
-            border-radius: 3px;
-            transition: all 0.2s ease;
+            border-radius: 2px;
         }
 
         .segment-card:hover {
-            background: var(--bg-dark);
-            border-left-color: var(--terminal-green);
-            box-shadow: 0 4px 12px rgba(10, 132, 255, 0.2);
+            background: var(--bg-medium);
+            border-left-color: var(--primary-color);
         }
 
         .question-card {
             background: var(--bg-medium);
             border: 1px solid var(--border-color);
-            border-left: 3px solid var(--terminal-green);
+            border-left: 2px solid var(--accent-color);
             padding: 1.5rem;
             margin-bottom: 1rem;
-            border-radius: 3px;
+            border-radius: 2px;
         }
 
         .term-badge {
             background: transparent;
-            color: var(--terminal-blue);
+            color: var(--text-secondary);
             padding: 0.4rem 0.8rem;
             border-radius: 2px;
             margin: 0.25rem;
             display: inline-block;
             font-size: 0.85rem;
-            font-family: 'Courier New', monospace;
-            border: 1px solid var(--terminal-blue);
+            border: 1px solid var(--border-color);
         }
 
         .term-badge:hover {
-            background: var(--terminal-blue);
-            color: var(--bg-dark);
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            border-color: var(--accent-color);
         }
 
         .article-card {
@@ -278,19 +241,17 @@
             border: 1px solid var(--border-color);
             padding: 1.5rem;
             margin-bottom: 1rem;
-            border-radius: 3px;
-            transition: all 0.2s ease;
+            border-radius: 2px;
         }
 
         .article-card:hover {
-            border-color: var(--terminal-blue);
-            box-shadow: 0 4px 12px rgba(10, 132, 255, 0.2);
+            border-color: var(--accent-color);
         }
 
         .nav-pills .nav-link {
             color: var(--text-secondary);
-            font-weight: 500;
-            border-radius: 3px;
+            font-weight: 400;
+            border-radius: 2px;
             padding: 0.75rem 1.5rem;
             margin: 0 0.25rem;
             transition: all 0.2s ease;
@@ -300,26 +261,25 @@
 
         .nav-pills .nav-link.active {
             background: var(--bg-dark);
-            color: var(--terminal-green);
-            border-color: var(--terminal-blue);
+            color: var(--text-primary);
+            border-color: var(--accent-color);
         }
 
         .nav-pills .nav-link:hover {
-            border-color: var(--terminal-blue);
+            border-color: var(--accent-color);
             color: var(--text-primary);
         }
 
         .progress {
-            height: 8px;
-            border-radius: 2px;
+            height: 6px;
+            border-radius: 0;
             background: var(--bg-dark);
             border: 1px solid var(--border-color);
             overflow: hidden;
         }
 
         .progress-bar {
-            background: var(--terminal-blue);
-            background: linear-gradient(90deg, var(--terminal-blue) 0%, var(--terminal-green) 100%);
+            background: var(--primary-color);
             border-radius: 0;
             transition: width 0.3s ease;
         }
@@ -330,7 +290,7 @@
             text-align: center;
             color: var(--text-secondary);
             background: var(--bg-dark);
-            border-top: 2px solid var(--terminal-blue);
+            border-top: 1px solid var(--border-color);
         }
 
         .footer p {
@@ -340,37 +300,36 @@
 
         .alert {
             border: 1px solid var(--border-color);
-            border-radius: 3px;
+            border-radius: 2px;
             padding: 1.25rem;
             background: var(--bg-medium);
             color: var(--text-primary);
         }
 
         .alert-success {
-            border-left: 3px solid var(--terminal-green);
+            border-left: 2px solid var(--success-color);
         }
 
         .alert-danger {
-            border-left: 3px solid var(--terminal-red);
+            border-left: 2px solid var(--danger-color);
         }
 
         .alert-info {
-            border-left: 3px solid var(--terminal-blue);
+            border-left: 2px solid var(--info-color);
         }
 
         .alert-warning {
-            border-left: 3px solid var(--warning-color);
+            border-left: 2px solid var(--warning-color);
         }
 
         .timestamp {
             background: transparent;
-            color: var(--terminal-blue);
+            color: var(--text-secondary);
             padding: 0.4rem 0.8rem;
             border-radius: 2px;
-            font-family: 'Courier New', monospace;
             font-size: 0.85rem;
-            font-weight: 500;
-            border: 1px solid var(--terminal-blue);
+            font-weight: 400;
+            border: 1px solid var(--border-color);
             display: inline-block;
         }
 
@@ -379,78 +338,72 @@
             background: var(--bg-medium);
             border: 1px solid var(--border-color);
             color: var(--text-primary);
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
+            border-radius: 2px;
         }
 
         .form-control:focus, .form-select:focus {
             background: var(--bg-dark);
-            border-color: var(--terminal-blue);
+            border-color: var(--accent-color);
             color: var(--text-primary);
-            box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.2);
+            box-shadow: none;
         }
 
         .form-label {
             color: var(--text-primary);
-            font-weight: 500;
+            font-weight: 400;
             margin-bottom: 0.5rem;
         }
 
         .btn {
-            border-radius: 3px;
-            font-weight: 500;
+            border-radius: 2px;
+            font-weight: 400;
             transition: all 0.2s ease;
-            font-family: 'Courier New', monospace;
         }
 
         .btn-success {
-            background: transparent;
-            border: 1px solid var(--terminal-green);
-            color: var(--terminal-green);
+            background: var(--bg-medium);
+            border: 1px solid var(--accent-color);
+            color: var(--text-primary);
         }
 
         .btn-success:hover {
-            background: var(--terminal-green);
-            color: var(--bg-dark);
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            border-color: var(--primary-color);
         }
 
         .btn-danger {
-            background: transparent;
-            border: 1px solid var(--terminal-red);
-            color: var(--terminal-red);
+            background: var(--bg-medium);
+            border: 1px solid var(--accent-color);
+            color: var(--text-primary);
         }
 
         .btn-danger:hover {
-            background: var(--terminal-red);
-            color: var(--bg-dark);
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            border-color: var(--danger-color);
         }
 
-        /* Технические акценты */
+        /* Заголовки и ссылки */
         h1, h2, h3, h4, h5, h6 {
             color: var(--text-primary);
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-
-        h1::before, h2::before {
-            content: "# ";
-            color: var(--terminal-blue);
+            font-weight: 500;
+            letter-spacing: 0;
         }
 
         a {
-            color: var(--terminal-blue);
-            text-decoration: none;
+            color: var(--text-secondary);
+            text-decoration: underline;
         }
 
         a:hover {
-            color: var(--terminal-green);
-            text-decoration: underline;
+            color: var(--text-primary);
         }
 
         /* Scrollbar styling */
         ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
         }
 
         ::-webkit-scrollbar-track {
@@ -459,11 +412,11 @@
 
         ::-webkit-scrollbar-thumb {
             background: var(--border-color);
-            border-radius: 2px;
+            border-radius: 0;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: var(--terminal-blue);
+            background: var(--accent-color);
         }
     </style>
 

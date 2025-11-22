@@ -459,9 +459,9 @@ def run_processing(file_path: str, task_id: str, options: Dict):
                 session_id = None
                 for line in output_lines:
                     if 'Все результаты сохранены в:' in line or 'artifacts/' in line:
-                        # Ищем путь вида artifacts/video_TIMESTAMP
+                        # Ищем путь вида artifacts/video_TIMESTAMP (например video_20231122_153045)
                         import re
-                        match = re.search(r'artifacts[/\\](video_\d+)', line)
+                        match = re.search(r'artifacts[/\\](video_[\d_]+)', line)
                         if match:
                             session_id = match.group(1)
                             break
