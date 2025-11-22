@@ -75,14 +75,19 @@ def segment(transcript, method, threshold, device):
 @click.argument('segments', type=click.Path(exists=True))
 @click.option('--model', default='cointegrated/rut5-base-absum', help='Модель суммаризации')
 @click.option('--device', default='auto', help='Устройство')
-def summarize(segments, model, device):
+@click.option('--use-llm', is_flag=True, help='Использовать LLM (GigaChat) вместо T5')
+def summarize(segments, model, device, use_llm):
     """Суммаризация сегментов"""
     click.echo(f"📝 Суммаризация: {segments}")
+
+    if use_llm:
+        click.echo("   🤖 Использую LLM (GigaChat) для качественной суммаризации")
 
     segments_path = Path(segments)
     summarizer = SegmentSummarizer(
         model_name=model,
-        device=device
+        device=device,
+        use_llm=use_llm
     )
 
     summaries = summarizer.process_segments_file(segments_path)
@@ -219,7 +224,9 @@ def process_all(video, model, language, device, output_dir, enable_scraping, ski
 
         # Этап 3: Суммаризация
         click.echo("\n[3/8] 📝 Суммаризация...")
-        summarizer = SegmentSummarizer(device=device)
+        if use_llm:
+            click.echo("   🤖 Использую LLM (GigaChat) для качественной суммаризации")
+        summarizer = SegmentSummarizer(device=device, use_llm=use_llm)
         summaries = summarizer.process_segments_file(segments_path)
         summaries_path = output_path / "summaries_per_segment.json"
 
