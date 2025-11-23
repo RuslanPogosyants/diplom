@@ -1,35 +1,30 @@
 # src/extract_terms.py
 """
-Извлечение терминов и именованных сущностей
+Извлечение терминов и именованных сущностей через GigaChat
 """
 import json
 import spacy
 from pathlib import Path
-from typing import List, Dict, Set, Tuple
-from collections import Counter
-import re
+from typing import List, Dict
 
 
 class TermExtractor:
-    """Извлечение терминов и NER"""
+    """Извлечение терминов через LLM и NER через SpaCy"""
 
     def __init__(
             self,
             model_name: str = "ru_core_news_lg",
-            use_llm: bool = True,
             llm_provider: 'LLMProvider' = None
     ):
         """
         Args:
-            model_name: название SpaCy модели (для fallback)
-            use_llm: использовать LLM (GigaChat) для извлечения ключевых терминов
+            model_name: название SpaCy модели (только для NER)
             llm_provider: провайдер LLM (если None, создаётся автоматически)
         """
-        self.use_llm = use_llm
         self.llm = llm_provider
 
-        # Инициализация LLM
-        if use_llm and llm_provider is None:
+        # Инициализация LLM (обязательно!)
+        if llm_provider is None:
             try:
                 print("[INFO] Initializing GigaChat for key term extraction...")
                 from src.llm_provider import LLMProvider, LLMConfig
@@ -45,30 +40,25 @@ class TermExtractor:
                 self.llm = LLMProvider(config)
                 print("[✓] GigaChat initialized for term extraction")
             except Exception as e:
-                print(f"[WARN] Failed to initialize GigaChat: {e}")
-                print("[WARN] Falling back to SpaCy-based extraction")
-                self.use_llm = False
-                self.llm = None
+                print(f"[ERROR] Failed to initialize GigaChat: {e}")
+                raise RuntimeError("GigaChat is required for term extraction. Please check GIGACHAT_CREDENTIALS.")
 
-        # Загрузка SpaCy (для NER и fallback)
-        print(f"[INFO] Loading SpaCy model: {model_name}")
+        # Загрузка SpaCy (только для NER)
+        print(f"[INFO] Loading SpaCy model for NER: {model_name}")
 
         try:
             self.nlp = spacy.load(model_name)
-            print(f"[✓] Model loaded successfully")
+            print(f"[✓] SpaCy model loaded successfully")
         except OSError:
             print(f"[✗] Model not found. Downloading...")
             import subprocess
             subprocess.run(["python", "-m", "spacy", "download", model_name])
             self.nlp = spacy.load(model_name)
-            print(f"[✓] Model loaded successfully")
-
-        # Стоп-слова для фильтрации
-        self.stop_words = self.nlp.Defaults.stop_words
+            print(f"[✓] SpaCy model loaded successfully")
 
     def extract_entities(self, text: str) -> Dict[str, List[Dict]]:
         """
-        Извлечение именованных сущностей
+        Извлечение именованных сущностей через SpaCy
 
         Returns:
             Dict с категориями сущностей
@@ -105,122 +95,6 @@ class TermExtractor:
 
         return entities
 
-    def extract_noun_phrases(self, text: str, min_length: int = 2) -> List[str]:
-        """
-        Извлечение именных групп (потенциальные термины)
-        """
-        doc = self.nlp(text)
-
-        noun_phrases = []
-        for chunk in doc.noun_chunks:
-            # Фильтруем короткие и стоп-слова
-            text = chunk.text.strip()
-            if len(text.split()) >= min_length and text.lower() not in self.stop_words:
-                noun_phrases.append(text)
-
-        return noun_phrases
-
-    def extract_technical_terms(
-            self,
-            text: str,
-            min_frequency: int = 2,
-            min_word_length: int = 5
-    ) -> List[Tuple[str, int]]:
-        """
-        Извлечение технических терминов через частотный анализ
-        """
-        doc = self.nlp(text)
-
-        # Собираем существительные и прилагательные
-        candidates = []
-        for token in doc:
-            if token.pos_ in ["NOUN", "ADJ", "PROPN"]:
-                # Лемматизация
-                lemma = token.lemma_.lower()
-                # Фильтрация
-                if (len(lemma) >= min_word_length and
-                        lemma not in self.stop_words and
-                        lemma.isalpha()):
-                    candidates.append(lemma)
-
-        # Подсчёт частоты
-        term_freq = Counter(candidates)
-
-        # Фильтруем по минимальной частоте
-        terms = [
-            (term, freq)
-            for term, freq in term_freq.most_common()
-            if freq >= min_frequency
-        ]
-
-        return terms
-
-    def extract_multi_word_terms(
-            self,
-            text: str,
-            min_frequency: int = 2
-    ) -> List[Tuple[str, int]]:
-        """
-        Извлечение многословных терминов (биграммы, триграммы)
-        """
-        doc = self.nlp(text)
-
-        # Извлечение биграмм
-        bigrams = []
-        tokens = [token for token in doc if token.pos_ in ["NOUN", "ADJ", "PROPN"]]
-
-        for i in range(len(tokens) - 1):
-            bigram = f"{tokens[i].lemma_} {tokens[i + 1].lemma_}"
-            bigrams.append(bigram.lower())
-
-        # Извлечение триграмм
-        trigrams = []
-        for i in range(len(tokens) - 2):
-            trigram = f"{tokens[i].lemma_} {tokens[i + 1].lemma_} {tokens[i + 2].lemma_}"
-            trigrams.append(trigram.lower())
-
-        # Подсчёт частоты
-        all_terms = bigrams + trigrams
-        term_freq = Counter(all_terms)
-
-        # Фильтруем
-        terms = [
-            (term, freq)
-            for term, freq in term_freq.most_common()
-            if freq >= min_frequency
-        ]
-
-        return terms
-
-    def create_glossary(
-            self,
-            terms: List[Tuple[str, int]],
-            entities: Dict[str, List[Dict]],
-            max_terms: int = 50
-    ) -> Dict:
-        """
-        Создание глоссария терминов
-        """
-        print(f"[INFO] Creating glossary with up to {max_terms} terms")
-
-        # Сортируем термины по частоте
-        sorted_terms = sorted(terms, key=lambda x: x[1], reverse=True)[:max_terms]
-
-        glossary = {
-            "technical_terms": [
-                {"term": term, "frequency": freq, "definition": ""}
-                for term, freq in sorted_terms
-            ],
-            "named_entities": {
-                "persons": list(set(e["text"] for e in entities.get("PERSON", []))),
-                "organizations": list(set(e["text"] for e in entities.get("ORG", []))),
-                "locations": list(set(e["text"] for e in entities.get("LOC", []) + entities.get("GPE", []))),
-                "dates": list(set(e["text"] for e in entities.get("DATE", []))),
-            }
-        }
-
-        return glossary
-
     def extract_key_terms_from_summaries(
             self,
             summaries: List[str],
@@ -236,18 +110,7 @@ class TermExtractor:
         Returns:
             Список терминов с метаданными
         """
-        if not self.use_llm or not self.llm:
-            print("[WARN] LLM not available, using fallback term extraction")
-            # Fallback: объединяем суммаризации и используем SpaCy
-            combined_text = " ".join(summaries)
-            single_terms = self.extract_technical_terms(combined_text, min_frequency=1)
-            return [
-                {"term": term, "frequency": freq, "type": "spacy_extracted"}
-                for term, freq in single_terms[:num_terms]
-            ]
-
-        # Используем LLM для извлечения терминов
-        print("[INFO] Using LLM for intelligent term extraction...")
+        print("[INFO] Using GigaChat for intelligent term extraction...")
         llm_terms = self.llm.extract_key_terms(summaries, num_terms=num_terms)
 
         return llm_terms
@@ -258,7 +121,7 @@ class TermExtractor:
             output_dir: Path = None
     ) -> Dict:
         """
-        Извлечение терминов из суммаризаций (новый подход с LLM)
+        Извлечение терминов из суммаризаций через LLM
 
         Args:
             summaries_path: путь к summaries_per_segment.json
@@ -283,14 +146,14 @@ class TermExtractor:
         # Извлечение ключевых терминов через LLM
         key_terms = self.extract_key_terms_from_summaries(summaries, num_terms=20)
 
-        print(f"[INFO] Extracted {len(key_terms)} key terms via LLM")
+        print(f"[INFO] Extracted {len(key_terms)} key terms via GigaChat")
 
         # Также извлекаем NER из полного текста (для дополнительной информации)
         print("[INFO] Extracting named entities from full transcript...")
         full_text = " ".join([seg.get("text", "") for seg in segments])
         entities = self.extract_entities(full_text[:50000])  # Ограничиваем для производительности
 
-        # Формируем глоссарий в новом формате
+        # Формируем глоссарий
         glossary = {
             "key_terms": [
                 {
@@ -312,7 +175,7 @@ class TermExtractor:
         stats = {
             "total_key_terms": len(key_terms),
             "total_entities": sum(len(entities[k]) for k in entities),
-            "extraction_method": "llm" if self.use_llm else "spacy"
+            "extraction_method": "gigachat"
         }
 
         result = {
@@ -334,66 +197,6 @@ class TermExtractor:
 
         return result
 
-    def process_transcript(
-            self,
-            transcript_path: Path,
-            output_dir: Path = None
-    ) -> Dict:
-        """
-        Полный процесс извлечения терминов (старый подход SpaCy)
-        """
-        print(f"\n{'=' * 60}")
-        print("[INFO] Starting term extraction")
-        print(f"{'=' * 60}\n")
-
-        # Загрузка транскрипции
-        with open(transcript_path, 'r', encoding='utf-8') as f:
-            transcript_data = json.load(f)
-
-        full_text = transcript_data["full_text"]
-
-        # Извлечение сущностей
-        print("[INFO] Extracting named entities...")
-        entities = self.extract_entities(full_text)
-
-        # Извлечение терминов
-        print("[INFO] Extracting technical terms...")
-        single_terms = self.extract_technical_terms(full_text)
-        multi_terms = self.extract_multi_word_terms(full_text)
-
-        all_terms = single_terms + multi_terms
-
-        # Создание глоссария
-        glossary = self.create_glossary(all_terms, entities)
-
-        # Статистика
-        stats = {
-            "total_entities": sum(len(entities[k]) for k in entities),
-            "total_terms": len(all_terms),
-            "unique_persons": len(glossary["named_entities"]["persons"]),
-            "unique_orgs": len(glossary["named_entities"]["organizations"]),
-            "unique_locations": len(glossary["named_entities"]["locations"])
-        }
-
-        result = {
-            "glossary": glossary,
-            "entities_detailed": entities,
-            "all_terms": [{"term": t, "frequency": f} for t, f in all_terms[:100]],
-            "statistics": stats
-        }
-
-        print(f"\n[✓] Term extraction complete!")
-        print(f"[INFO] Entities found: {stats['total_entities']}")
-        print(f"[INFO] Terms extracted: {stats['total_terms']}")
-
-        # Сохранение
-        if output_dir is None:
-            output_dir = transcript_path.parent
-
-        self.save_results(result, output_dir)
-
-        return result
-
     def save_results(self, results: Dict, output_dir: Path):
         """Сохранение результатов"""
 
@@ -410,47 +213,27 @@ class TermExtractor:
             f.write("ГЛОССАРИЙ ТЕРМИНОВ И СУЩНОСТЕЙ\n")
             f.write("=" * 70 + "\n\n")
 
-            # Статистика (поддержка обоих форматов)
+            # Статистика
             stats = results["statistics"]
             glossary = results["glossary"]
 
             f.write("СТАТИСТИКА:\n")
             f.write("-" * 70 + "\n")
             f.write(f"Всего сущностей: {stats.get('total_entities', 0)}\n")
+            f.write(f"Всего ключевых терминов: {stats['total_key_terms']}\n")
+            f.write(f"Метод извлечения: {stats.get('extraction_method', 'gigachat')}\n\n")
 
-            # Поддержка обоих форматов
-            if 'total_key_terms' in stats:
-                # Новый формат (LLM)
-                f.write(f"Всего ключевых терминов: {stats['total_key_terms']}\n")
-                f.write(f"Метод извлечения: {stats.get('extraction_method', 'llm')}\n")
-            elif 'total_terms' in stats:
-                # Старый формат (SpaCy)
-                f.write(f"Всего терминов: {stats['total_terms']}\n")
-                f.write(f"Уникальных персон: {stats.get('unique_persons', 0)}\n")
-                f.write(f"Уникальных организаций: {stats.get('unique_orgs', 0)}\n")
-                f.write(f"Уникальных локаций: {stats.get('unique_locations', 0)}\n")
-
+            # Ключевые термины
+            f.write("КЛЮЧЕВЫЕ ТЕРМИНЫ (извлечены через GigaChat):\n")
+            f.write("-" * 70 + "\n")
+            for i, term_data in enumerate(glossary["key_terms"], 1):
+                term_type = term_data.get('type', 'general')
+                relevance = term_data.get('relevance', 'medium')
+                f.write(f"{i}. {term_data['term']} [{term_type.upper()}] (релевантность: {relevance})\n")
             f.write("\n")
 
-            # Ключевые термины (новый формат LLM)
-            if "key_terms" in glossary:
-                f.write("КЛЮЧЕВЫЕ ТЕРМИНЫ (извлечены через GigaChat):\n")
-                f.write("-" * 70 + "\n")
-                for i, term_data in enumerate(glossary["key_terms"], 1):
-                    term_type = term_data.get('type', 'general')
-                    relevance = term_data.get('relevance', 'medium')
-                    f.write(f"{i}. {term_data['term']} [{term_type.upper()}] (релевантность: {relevance})\n")
-                f.write("\n")
-            # Технические термины (старый формат SpaCy)
-            elif "technical_terms" in glossary:
-                f.write("ТЕХНИЧЕСКИЕ ТЕРМИНЫ:\n")
-                f.write("-" * 70 + "\n")
-                for i, term_data in enumerate(glossary["technical_terms"], 1):
-                    f.write(f"{i}. {term_data['term']} (встречается {term_data['frequency']} раз)\n")
-                f.write("\n")
-
             # Персоны
-            persons = results["glossary"]["named_entities"]["persons"]
+            persons = glossary["named_entities"]["persons"]
             if persons:
                 f.write("ПЕРСОНЫ:\n")
                 f.write("-" * 70 + "\n")
@@ -459,7 +242,7 @@ class TermExtractor:
                 f.write("\n")
 
             # Организации
-            orgs = results["glossary"]["named_entities"]["organizations"]
+            orgs = glossary["named_entities"]["organizations"]
             if orgs:
                 f.write("ОРГАНИЗАЦИИ:\n")
                 f.write("-" * 70 + "\n")
@@ -468,7 +251,7 @@ class TermExtractor:
                 f.write("\n")
 
             # Локации
-            locs = results["glossary"]["named_entities"]["locations"]
+            locs = glossary["named_entities"]["locations"]
             if locs:
                 f.write("ЛОКАЦИИ:\n")
                 f.write("-" * 70 + "\n")
@@ -483,20 +266,20 @@ def main():
     """Пример использования"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Extract terms and named entities")
-    parser.add_argument("transcript", help="Path to transcript_raw.json")
-    parser.add_argument("--model", default="ru_core_news_lg", help="SpaCy model")
+    parser = argparse.ArgumentParser(description="Extract terms via LLM and named entities")
+    parser.add_argument("summaries", help="Path to summaries_per_segment.json")
+    parser.add_argument("--model", default="ru_core_news_lg", help="SpaCy model for NER")
 
     args = parser.parse_args()
 
-    transcript_path = Path(args.transcript)
-    output_dir = transcript_path.parent
+    summaries_path = Path(args.summaries)
+    output_dir = summaries_path.parent
 
     # Создание экстрактора
     extractor = TermExtractor(model_name=args.model)
 
     # Извлечение терминов
-    results = extractor.process_transcript(transcript_path, output_dir)
+    results = extractor.process_summaries(summaries_path, output_dir)
 
     # Обновление checkpoint
     checkpoint_path = output_dir / "checkpoint.json"

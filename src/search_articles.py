@@ -431,25 +431,20 @@ class ArticleSearcher:
         with open(terms_path, 'r', encoding='utf-8') as f:
             terms_data = json.load(f)
 
-        # Извлекаем топ-термины (поддержка обоих форматов: LLM и SpaCy)
+        # Извлекаем ключевые термины (GigaChat формат)
         glossary = terms_data.get("glossary", {})
+        key_terms = glossary.get("key_terms", [])
 
-        # Новый формат (LLM)
-        if "key_terms" in glossary:
-            key_terms = glossary["key_terms"]
-            # Приоритет для терминов высокой релевантности
-            high_relevance = [t["term"] for t in key_terms if t.get("relevance") == "high"]
-            medium_relevance = [t["term"] for t in key_terms if t.get("relevance") == "medium"]
-            terms_list = (high_relevance + medium_relevance)[:15]
-            print(f"[INFO] Using LLM-extracted key terms")
-        # Старый формат (SpaCy)
-        elif "technical_terms" in glossary:
-            technical_terms = glossary["technical_terms"]
-            terms_list = [term["term"] for term in technical_terms[:10]]
-            print(f"[INFO] Using SpaCy-extracted terms")
-        else:
-            print(f"[WARN] No terms found in glossary, using fallback")
+        # Приоритет для терминов высокой релевантности
+        high_relevance = [t["term"] for t in key_terms if t.get("relevance") == "high"]
+        medium_relevance = [t["term"] for t in key_terms if t.get("relevance") == "medium"]
+        terms_list = (high_relevance + medium_relevance)[:15]
+
+        if not terms_list:
+            print(f"[WARN] No key terms found in glossary")
             terms_list = []
+
+        print(f"[INFO] Using {len(terms_list)} GigaChat-extracted key terms")
 
         # Пытаемся получить контекст из суммаризации (если есть)
         context = ""
