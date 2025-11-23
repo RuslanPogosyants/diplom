@@ -286,10 +286,16 @@ class QuestionGenerator:
                 print(f"[DEBUG] Received {len(llm_questions)} questions from LLM")
 
                 # Форматируем вопросы с таймкодами
+                # ВАЖНО: Распределяем вопросы равномерно по всей лекции
                 all_questions = []
+                num_segments = len(segments)
+
                 for i, q in enumerate(llm_questions):
-                    # Пытаемся найти релевантный сегмент
-                    relevant_segment = segments[i % len(segments)]
+                    # Равномерное распределение по всей лекции
+                    segment_index = int((i / len(llm_questions)) * num_segments)
+                    # Гарантируем, что индекс в пределах
+                    segment_index = min(segment_index, num_segments - 1)
+                    relevant_segment = segments[segment_index]
 
                     question_dict = {
                         "id": i,
@@ -311,6 +317,15 @@ class QuestionGenerator:
                         question_dict["explanation"] = q["explanation"]
 
                     all_questions.append(question_dict)
+
+                print(f"[INFO] Questions distributed across {num_segments} segments")
+                if len(llm_questions) > 0:
+                    first_time = int(segments[0]['start'])
+                    print(f"[INFO] First question at segment {segments[0]['id']} (~{first_time//60}:{first_time%60:02d})")
+                if len(llm_questions) > 1:
+                    last_idx = min(int(((len(llm_questions)-1) / len(llm_questions)) * num_segments), num_segments - 1)
+                    last_time = int(segments[last_idx]['start'])
+                    print(f"[INFO] Last question at segment {segments[last_idx]['id']} (~{last_time//60}:{last_time%60:02d})")
 
                 # Дополнительная проверка
                 empty_questions = sum(1 for q in all_questions if not q.get("question"))
