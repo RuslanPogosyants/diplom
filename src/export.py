@@ -410,10 +410,19 @@ class ReportExporter:
                     "summary": seg["summary"]
                 })
 
-        # Глоссарий
+        # Глоссарий (поддержка обоих форматов: LLM и SpaCy)
         if "terms" in data:
             terms = data["terms"]
-            template_data["glossary"] = terms["glossary"]["technical_terms"][:20]  # Топ-20
+            glossary = terms.get("glossary", {})
+
+            # Новый формат (LLM)
+            if "key_terms" in glossary:
+                template_data["glossary"] = glossary["key_terms"][:20]  # Топ-20
+            # Старый формат (SpaCy)
+            elif "technical_terms" in glossary:
+                template_data["glossary"] = glossary["technical_terms"][:20]  # Топ-20
+            else:
+                template_data["glossary"] = []
 
         # Вопросы
         if "questions" in data:
