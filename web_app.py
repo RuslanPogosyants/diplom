@@ -649,6 +649,263 @@ def cancel_processing(task_id):
     return jsonify({'success': True, 'message': 'Задача отменена'})
 
 
+@app.route('/api/export/pdf/<session_id>')
+def export_pdf(session_id):
+    """
+    Экспорт результатов в PDF формат
+
+    Args:
+        session_id: ID сессии
+
+    Returns:
+        PDF файл для скачивания
+    """
+    try:
+        from io import BytesIO
+        from flask import send_file
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
+
+        # Загружаем данные сессии
+        session_data = get_session_data(session_id)
+        if not session_data:
+            return jsonify({'error': 'Сессия не найдена'}), 404
+
+        # Создаём PDF в памяти
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4,
+                                rightMargin=2*cm, leftMargin=2*cm,
+                                topMargin=2*cm, bottomMargin=2*cm)
+
+        # Стили
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            alignment=TA_CENTER,
+            spaceAfter=30
+        )
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=16,
+            spaceAfter=12,
+            spaceBefore=12
+        )
+        body_style = ParagraphStyle(
+            'CustomBody',
+            parent=styles['BodyText'],
+            fontSize=11,
+            alignment=TA_JUSTIFY,
+            spaceAfter=12
+        )
+
+        # Собираем контент
+        story = []
+
+        # Заголовок
+        story.append(Paragraph("Конспект лекции", title_style))
+        story.append(Paragraph(f"<i>{session_id}</i>", styles['Normal']))
+        story.append(Spacer(1, 20))
+
+        # Обзор
+        if session_data.get('final_summary'):
+            fs = session_data['final_summary']
+            story.append(Paragraph("Общий обзор", heading_style))
+            if fs.get('overview'):
+                story.append(Paragraph(fs['overview'], body_style))
+            story.append(Spacer(1, 10))
+
+            # Ключевые тезисы
+            if fs.get('key_points'):
+                story.append(Paragraph("Ключевые тезисы", heading_style))
+                for i, point in enumerate(fs['key_points'], 1):
+                    story.append(Paragraph(f"{i}. {point}", body_style))
+                story.append(Spacer(1, 10))
+
+        story.append(PageBreak())
+
+        # Текст лекции
+        if session_data.get('transcript') and session_data['transcript'].get('segments'):
+            story.append(Paragraph("Полный текст лекции", heading_style))
+
+            full_text = []
+            for seg in session_data['transcript']['segments']:
+                full_text.append(seg['text'])
+
+            lecture_text = ' '.join(full_text)
+            sentences = lecture_text.split('. ')
+
+            current_paragraph = []
+            for i, sentence in enumerate(sentences):
+                current_paragraph.append(sentence)
+                if (i + 1) % 5 == 0:  # Каждые 5 предложений - новый абзац
+                    para_text = '. '.join(current_paragraph) + '.'
+                    story.append(Paragraph(para_text, body_style))
+                    current_paragraph = []
+
+            # Остаток
+            if current_paragraph:
+                para_text = '. '.join(current_paragraph)
+                if not para_text.endswith('.'):
+                    para_text += '.'
+                story.append(Paragraph(para_text, body_style))
+
+        story.append(PageBreak())
+
+        # Вопросы
+        if session_data.get('questions') and session_data['questions'].get('questions'):
+            story.append(Paragraph("Вопросы для самопроверки", heading_style))
+            for q in session_data['questions']['questions']:
+                if q.get('question'):
+                    diff_label = {'easy': 'Легкий', 'medium': 'Средний', 'hard': 'Сложный'}.get(
+                        q.get('difficulty', 'medium'), 'Средний'
+                    )
+                    story.append(Paragraph(f"<b>[{diff_label}]</b> {q['question']}", body_style))
+                    if q.get('answer'):
+                        story.append(Paragraph(f"<i>Ответ:</i> {q['answer']}", body_style))
+                    if q.get('explanation'):
+                        story.append(Paragraph(f"<i>Объяснение:</i> {q['explanation']}", body_style))
+                    story.append(Spacer(1, 10))
+
+        # Генерируем PDF
+        doc.build(story)
+        buffer.seek(0)
+
+        return send_file(
+            buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'lecture_{session_id}.pdf'
+        )
+
+    except ImportError:
+        return jsonify({
+            'error': 'reportlab не установлен. Установите: pip install reportlab'
+        }), 500
+    except Exception as e:
+        logger.error(f"Ошибка при генерации PDF: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Ошибка генерации PDF: {str(e)}'}), 500
+
+
+@app.route('/api/export/txt/<session_id>')
+def export_txt(session_id):
+    """
+    Экспорт результатов в TXT формат
+
+    Args:
+        session_id: ID сессии
+
+    Returns:
+        TXT файл для скачивания
+    """
+    try:
+        from flask import Response
+
+        # Загружаем данные сессии
+        session_data = get_session_data(session_id)
+        if not session_data:
+            return jsonify({'error': 'Сессия не найдена'}), 404
+
+        # Собираем текст
+        lines = []
+        lines.append("=" * 80)
+        lines.append(f"КОНСПЕКТ ЛЕКЦИИ: {session_id}")
+        lines.append("=" * 80)
+        lines.append("")
+
+        # Обзор
+        if session_data.get('final_summary'):
+            fs = session_data['final_summary']
+            lines.append("ОБЩИЙ ОБЗОР")
+            lines.append("-" * 80)
+            if fs.get('overview'):
+                lines.append(fs['overview'])
+            lines.append("")
+
+            # Ключевые тезисы
+            if fs.get('key_points'):
+                lines.append("КЛЮЧЕВЫЕ ТЕЗИСЫ")
+                lines.append("-" * 80)
+                for i, point in enumerate(fs['key_points'], 1):
+                    lines.append(f"{i}. {point}")
+                lines.append("")
+
+        lines.append("")
+        lines.append("=" * 80)
+        lines.append("ПОЛНЫЙ ТЕКСТ ЛЕКЦИИ")
+        lines.append("=" * 80)
+        lines.append("")
+
+        # Текст лекции
+        if session_data.get('transcript') and session_data['transcript'].get('segments'):
+            full_text = []
+            for seg in session_data['transcript']['segments']:
+                full_text.append(seg['text'])
+
+            lecture_text = ' '.join(full_text)
+            sentences = lecture_text.split('. ')
+
+            current_paragraph = []
+            for i, sentence in enumerate(sentences):
+                current_paragraph.append(sentence)
+                if (i + 1) % 5 == 0:
+                    lines.append('. '.join(current_paragraph) + '.')
+                    lines.append("")
+                    current_paragraph = []
+
+            if current_paragraph:
+                para_text = '. '.join(current_paragraph)
+                if not para_text.endswith('.'):
+                    para_text += '.'
+                lines.append(para_text)
+
+        lines.append("")
+        lines.append("=" * 80)
+        lines.append("ВОПРОСЫ ДЛЯ САМОПРОВЕРКИ")
+        lines.append("=" * 80)
+        lines.append("")
+
+        # Вопросы
+        if session_data.get('questions') and session_data['questions'].get('questions'):
+            for i, q in enumerate(session_data['questions']['questions'], 1):
+                if q.get('question'):
+                    diff_label = {'easy': 'Легкий', 'medium': 'Средний', 'hard': 'Сложный'}.get(
+                        q.get('difficulty', 'medium'), 'Средний'
+                    )
+                    lines.append(f"Вопрос {i} [{diff_label}]:")
+                    lines.append(q['question'])
+                    if q.get('answer'):
+                        lines.append(f"\nОтвет: {q['answer']}")
+                    if q.get('explanation'):
+                        lines.append(f"Объяснение: {q['explanation']}")
+                    lines.append("")
+                    lines.append("-" * 80)
+                    lines.append("")
+
+        text_content = '\n'.join(lines)
+
+        return Response(
+            text_content,
+            mimetype='text/plain; charset=utf-8',
+            headers={
+                'Content-Disposition': f'attachment; filename=lecture_{session_id}.txt'
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Ошибка при генерации TXT: {e}")
+        return jsonify({'error': f'Ошибка генерации TXT: {str(e)}'}), 500
+
+
 if __name__ == '__main__':
     import platform
 
