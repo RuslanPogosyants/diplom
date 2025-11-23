@@ -91,7 +91,13 @@ class ArticleSearcher:
             # Fallback: просто используем термины
             return terms[:num_queries]
 
+        # Если нет ни терминов, ни контекста - не можем сгенерировать запросы
+        if not terms and not context:
+            print(f"[WARN] No terms or context available for query generation")
+            return []
+
         print(f"\n[LLM] Generating {num_queries} search queries...")
+        print(f"[LLM] Input: {len(terms)} terms, context length: {len(context)} chars")
 
         system_prompt = """Ты — эксперт по информационному поиску научных и технических материалов.
 Твоя задача — сгенерировать оптимальные поисковые запросы для академических баз данных (Google Scholar, РИНЦ, Habr).
@@ -106,14 +112,16 @@ class ArticleSearcher:
 Формат ответа:
 Один запрос на строку, без нумерации"""
 
-        terms_str = ", ".join(terms[:10])
-        user_prompt = f"""На основе следующих ключевых терминов из образовательного видео создай {num_queries} поисковых запросов:
+        # Формируем промпт в зависимости от доступных данных
+        if terms:
+            terms_str = ", ".join(terms[:10])
+            terms_section = f"Термины: {terms_str}\n\n"
+        else:
+            terms_section = ""
 
-Термины: {terms_str}
+        user_prompt = f"""На основе следующей информации из образовательного видео создай {num_queries} поисковых запросов:
 
-{f"Контекст видео: {context}" if context else ""}
-
-Создай запросы, которые помогут найти:
+{terms_section}{f"Контекст видео: {context}\n\n" if context else ""}Создай запросы, которые помогут найти:
 1. Научные статьи и исследования по теме
 2. Технические обзоры и руководства
 3. Образовательные материалы для углубленного изучения
@@ -435,16 +443,30 @@ class ArticleSearcher:
         glossary = terms_data.get("glossary", {})
         key_terms = glossary.get("key_terms", [])
 
+        print(f"[DEBUG] Loaded glossary with {len(key_terms)} key terms")
+        if len(key_terms) > 0:
+            print(f"[DEBUG] First 3 terms: {[t['term'] for t in key_terms[:3]]}")
+
         # Приоритет для терминов высокой релевантности
         high_relevance = [t["term"] for t in key_terms if t.get("relevance") == "high"]
         medium_relevance = [t["term"] for t in key_terms if t.get("relevance") == "medium"]
         terms_list = (high_relevance + medium_relevance)[:15]
 
         if not terms_list:
-            print(f"[WARN] No key terms found in glossary")
-            terms_list = []
+            print(f"[ERROR] No key terms found in glossary! Cannot search for articles.")
+            print(f"[DEBUG] Glossary structure: {list(glossary.keys())}")
+            print(f"[DEBUG] Terms data structure: {list(terms_data.keys())}")
+            # Возвращаем пустой результат
+            return {
+                "total_articles": 0,
+                "articles": [],
+                "topics_searched": [],
+                "sources": [],
+                "error": "No key terms available for article search"
+            }
 
         print(f"[INFO] Using {len(terms_list)} GigaChat-extracted key terms")
+        print(f"[INFO] High relevance: {len(high_relevance)}, Medium relevance: {len(medium_relevance)}")
 
         # Пытаемся получить контекст из суммаризации (если есть)
         context = ""
