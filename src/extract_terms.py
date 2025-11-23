@@ -410,22 +410,44 @@ class TermExtractor:
             f.write("ГЛОССАРИЙ ТЕРМИНОВ И СУЩНОСТЕЙ\n")
             f.write("=" * 70 + "\n\n")
 
-            # Статистика
+            # Статистика (поддержка обоих форматов)
             stats = results["statistics"]
+            glossary = results["glossary"]
+
             f.write("СТАТИСТИКА:\n")
             f.write("-" * 70 + "\n")
-            f.write(f"Всего сущностей: {stats['total_entities']}\n")
-            f.write(f"Всего терминов: {stats['total_terms']}\n")
-            f.write(f"Уникальных персон: {stats['unique_persons']}\n")
-            f.write(f"Уникальных организаций: {stats['unique_orgs']}\n")
-            f.write(f"Уникальных локаций: {stats['unique_locations']}\n\n")
+            f.write(f"Всего сущностей: {stats.get('total_entities', 0)}\n")
 
-            # Технические термины
-            f.write("ТЕХНИЧЕСКИЕ ТЕРМИНЫ:\n")
-            f.write("-" * 70 + "\n")
-            for i, term_data in enumerate(results["glossary"]["technical_terms"], 1):
-                f.write(f"{i}. {term_data['term']} (встречается {term_data['frequency']} раз)\n")
+            # Поддержка обоих форматов
+            if 'total_key_terms' in stats:
+                # Новый формат (LLM)
+                f.write(f"Всего ключевых терминов: {stats['total_key_terms']}\n")
+                f.write(f"Метод извлечения: {stats.get('extraction_method', 'llm')}\n")
+            elif 'total_terms' in stats:
+                # Старый формат (SpaCy)
+                f.write(f"Всего терминов: {stats['total_terms']}\n")
+                f.write(f"Уникальных персон: {stats.get('unique_persons', 0)}\n")
+                f.write(f"Уникальных организаций: {stats.get('unique_orgs', 0)}\n")
+                f.write(f"Уникальных локаций: {stats.get('unique_locations', 0)}\n")
+
             f.write("\n")
+
+            # Ключевые термины (новый формат LLM)
+            if "key_terms" in glossary:
+                f.write("КЛЮЧЕВЫЕ ТЕРМИНЫ (извлечены через GigaChat):\n")
+                f.write("-" * 70 + "\n")
+                for i, term_data in enumerate(glossary["key_terms"], 1):
+                    term_type = term_data.get('type', 'general')
+                    relevance = term_data.get('relevance', 'medium')
+                    f.write(f"{i}. {term_data['term']} [{term_type.upper()}] (релевантность: {relevance})\n")
+                f.write("\n")
+            # Технические термины (старый формат SpaCy)
+            elif "technical_terms" in glossary:
+                f.write("ТЕХНИЧЕСКИЕ ТЕРМИНЫ:\n")
+                f.write("-" * 70 + "\n")
+                for i, term_data in enumerate(glossary["technical_terms"], 1):
+                    f.write(f"{i}. {term_data['term']} (встречается {term_data['frequency']} раз)\n")
+                f.write("\n")
 
             # Персоны
             persons = results["glossary"]["named_entities"]["persons"]
